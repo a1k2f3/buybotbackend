@@ -1,7 +1,11 @@
 import express from "express";
 import connectDB from "./src/app/connection/db.js"; // import connection
 import productRoutes from "./src/app/route/ProductRoute.js";
-
+import categoryRoutes from "./src/app/route/CategoryController.js";
+import brandRoutes from "./src/app/route/BranRoute.js";
+import tagRoutes from "./src/app/route/tagRoute.js";
+import reviewRoutes from "./src/app/route/ReviewRoute.js";
+import dotenv from "dotenv";
 const app = express();
 app.use(express.json());
 
@@ -9,6 +13,11 @@ app.use(express.json());
 connectDB();
 
 // Routes
+app.use("/api/categories", categoryRoutes);
+app.use("/api/brands", brandRoutes);
+app.use("/api/tags", tagRoutes);
+app.use("/api/reviews", reviewRoutes);
+
 app.use("/api/products", productRoutes);
 
 // const PORT = 5000;
