@@ -2,7 +2,7 @@ import express from "express";
 import connectDB from "./src/app/connection/db.js"; // import connection
 import productRoutes from "./src/app/route/ProductRoute.js";
 import categoryRoutes from "./src/app/route/CategoryController.js";
-import brandRoutes from "./src/app/route/BranRoute.js";
+import StoreRoute from "./src/app/route/StoreRoute.js";
 import tagRoutes from "./src/app/route/tagRoute.js";
 import reviewRoutes from "./src/app/route/ReviewRoute.js";
 import dotenv from "dotenv";
@@ -14,7 +14,7 @@ connectDB();
 
 // Routes
 app.use("/api/categories", categoryRoutes);
-app.use("/api/brands", brandRoutes);
+app.use("/api/store", StoreRoute);
 app.use("/api/tags", tagRoutes);
 app.use("/api/reviews", reviewRoutes);
 

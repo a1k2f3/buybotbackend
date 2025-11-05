@@ -10,7 +10,7 @@ const productSchema = new mongoose.Schema({
   sku: { type: String, unique: true },
   images: [{ type: String }],
   category: { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true },
-  brand: { type: mongoose.Schema.Types.ObjectId, ref: "Brand" },
+  brand: { type: mongoose.Schema.Types.ObjectId, ref: "Store" },
   tags: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }],
   reviews: [{ type: mongoose.Schema.Types.ObjectId, ref: "Review" }]
 }, { timestamps: true });
