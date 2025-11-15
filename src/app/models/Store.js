@@ -41,9 +41,9 @@ const storeSchema = new mongoose.Schema(
     documents: {
       cnicFront: { type: String }, // CNIC front image
       cnicBack: { type: String },  // CNIC back image
-      // businessLicense: { type: String }, // Optional license file
-      // taxCertificate: { type: String }, // Optional tax document
-      // otherDocs: [{ type: String }], // For multiple additional files
+      businessLicense: { type: String }, // Optional license file
+      taxCertificate: { type: String }, // Optional tax document
+      otherDocs: [{ type: String }], // For multiple additional files
     },
 
     // 🔹 Store Status

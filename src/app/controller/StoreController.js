@@ -18,7 +18,7 @@ export const submitStoreRequest = async (req, res) => {
     if (existingRequest)
       return res.status(400).json({ message: "Request already submitted" });
 
-    const request = await StoreRequest.create({
+    const request = await Store.create({
       name, ownerName, email, password,
       description, address, contactNumber,
       logo, city, state, postalCode, country,
@@ -37,7 +37,7 @@ export const submitStoreRequest = async (req, res) => {
 };
 export const approveStoreRequest = async (req, res) => {
   try {
-    const request = await store.findById(req.params.id);
+    const request = await Store.findById(req.params.id);
     if (!request) return res.status(404).json({ message: "Request not found" });
 
     const store = await Store.create({

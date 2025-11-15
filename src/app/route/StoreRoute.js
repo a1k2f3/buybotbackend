@@ -1,8 +1,8 @@
 import express from "express";
 import {
   // registerStore,
-  approveStoreRequest,  rejectStoreRequest,
-
+  approveStoreRequest,  
+  rejectStoreRequest,
   loginStore,
   getStoreProfile,
   updateStore,

@@ -26,20 +26,11 @@ const userSchema = new mongoose.Schema(
       minlength: [6, "Password must be at least 6 characters"],
       select: false, // don’t return password by default
     },
-    role: {
-      type: String,
-      enum: ["customer", "store_owner", "admin"],
-      default: "customer",
-    },
     address: {
       type: String,
       trim: true,
     },
-    store: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Store",
-      default: null,
-    },
+   
   },
   { timestamps: true }
 );
