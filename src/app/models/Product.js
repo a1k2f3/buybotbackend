@@ -4,7 +4,7 @@ const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
   price: { type: Number, required: true },
-  currency: { type: String, default: "USD" },
+  currency: { type: String, default: "Rs" },
   stock: { type: Number, required: true },
   status: { type: String, enum: ["active", "inactive"], default: "active" },
   sku: { type: String, unique: true },

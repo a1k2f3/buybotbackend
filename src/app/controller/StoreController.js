@@ -5,35 +5,82 @@ const generateToken = (id) => {
   return jwt.sign({ id }, "secretkey", { expiresIn: "7d" }); // replace "secretkey" with env variable in production
 };
 
-// ✅ Register Store
-export const registerStore = async (req, res) => {
+export const submitStoreRequest = async (req, res) => {
   try {
-    const { name, ownerName, email, password, description, address, contactNumber, logo } = req.body;
+    const {
+      name, ownerName, email, password,
+      description, address, contactNumber,
+      logo, city, state, postalCode, country,
+      socialLinks, certificates, documents
+    } = req.body;
 
-    const existingStore = await Store.findOne({ email });
-    if (existingStore) return res.status(400).json({ message: "Store already registered" });
+    const existingRequest = await Store.findOne({ email });
+    if (existingRequest)
+      return res.status(400).json({ message: "Request already submitted" });
 
-    const store = await Store.create({
-      name,
-      ownerName,
-      email,
-      password,
-      description,
-      address,
-      contactNumber,
-      logo
+    const request = await StoreRequest.create({
+      name, ownerName, email, password,
+      description, address, contactNumber,
+      logo, city, state, postalCode, country,
+      socialLinks, certificates, documents
     });
 
+    // TODO: Send email to admin for review
+
     res.status(201).json({
-      _id: store._id,
-      name: store.name,
-      email: store.email,
-      token: generateToken(store._id),
+      message: "Store registration request submitted successfully",
+      requestId: request._id
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
+export const approveStoreRequest = async (req, res) => {
+  try {
+    const request = await store.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    const store = await Store.create({
+      name: request.name,
+      ownerName: request.ownerName,
+      email: request.email,
+      password: request.password,
+      description: request.description,
+      address: request.address,
+      contactNumber: request.contactNumber,
+      logo: request.logo,
+      city: request.city,
+      state: request.state,
+      postalCode: request.postalCode,
+      country: request.country,
+      socialLinks: request.socialLinks,
+      certificates: request.certificates,
+      documents: request.documents,
+      isVerified: true
+    });
+
+    request.status = "Approved";
+    await request.save();
+
+    res.json({ message: "Store approved successfully", store });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+export const rejectStoreRequest = async (req, res) => {
+  try {
+    const request = await Store.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    request.status = "Rejected";
+    await request.save();
+
+    res.json({ message: "Store request rejected" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 // ✅ Store Login
 export const loginStore = async (req, res) => {

@@ -1,16 +1,20 @@
 import express from "express";
 import {
-  registerStore,
+  // registerStore,
+  approveStoreRequest,  rejectStoreRequest,
+
   loginStore,
   getStoreProfile,
   updateStore,
-  deleteStore
+  deleteStore,
+  submitStoreRequest
 } from "../controller/StoreController.js";
 import { protect } from "../middleware/authstore.js";
 
 const router = express.Router();
-
-router.post("/register", registerStore);
+router.post("/send-request",submitStoreRequest );
+router.post("/register",approveStoreRequest );
+router.post("/reject-request",rejectStoreRequest );
 router.post("/login", loginStore);
 router.get("/profile", protect, getStoreProfile);
 router.put("/:id", protect, updateStore);

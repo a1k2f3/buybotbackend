@@ -8,6 +8,7 @@ import reviewRoutes from "./src/app/route/ReviewRoute.js";
 import userRoute from "./src/app/route/UserRute.js";
 import cartRoute from "./src/app/route/cartRoute.js";
 import orderRoutes from "./src/app/route/orderRoutes.js";
+import riderRoutes from "./src/app/route/ReviewRoute.js";
 import dotenv from "dotenv";
 import cors from "cors";
 dotenv.config();
@@ -23,6 +24,7 @@ app.use("/api/users", userRoute);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoute);
 app.use("/api/orders", orderRoutes);
+app.use("/api/riders", riderRoutes);
 
 // const PORT = 5000;
 app.listen(process.env.PORT, () => console.log(`Server running on port ${process.env.PORT}`));

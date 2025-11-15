@@ -18,10 +18,17 @@ const orderSchema = new mongoose.Schema(
         price: { type: Number, required: true },
       },
     ],
+    
     totalAmount: {
       type: Number,
       required: true,
     },
+    storeId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Store",
+  required: true,
+},
+
     shippingAddress: {
       type: String,
       required: true,

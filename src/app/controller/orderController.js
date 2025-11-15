@@ -48,7 +48,10 @@ export const createOrder = async (req, res) => {
 // 📦 Get all orders for a user
 export const getUserOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    const orders = await Order.find({ userId: req.user.id })
+      .populate("storeId", "storeName address") // 🏬 get store details
+      .sort({ createdAt: -1 });
+
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -59,13 +62,16 @@ export const getUserOrders = async (req, res) => {
 export const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
-      .populate("userId", "name email phone")
+      .populate("userId", "name email phone") // 🧑 user info
+      .populate("storeId", "storeName address phone") // 🏬 store info (address included)
       .sort({ createdAt: -1 });
+
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // 🚚 Update order status
 export const updateOrderStatus = async (req, res) => {

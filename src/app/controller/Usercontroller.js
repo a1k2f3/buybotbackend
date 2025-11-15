@@ -3,11 +3,11 @@ import Store from "../models/Store.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
-const JWT_SECRET = "your_jwt_secret_key"; // You can move this to .env
+// const JWT_SECRET = "your_jwt_secret_key"; // You can move this to .env
 
 // 🔹 Generate JWT
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
 // 🧩 Register
