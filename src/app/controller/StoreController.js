@@ -67,6 +67,15 @@ export const approveStoreRequest = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+export const getAllStoreRequests = async (req, res) => {
+  try {
+    const requests = await Store.find({ isVerified: false }); 
+    res.json(requests);
+  }
+  catch (err) {
+    res.status(500).json({ error: err.message });
+  } 
+};
 export const rejectStoreRequest = async (req, res) => {
   try {
     const request = await Store.findById(req.params.id);
@@ -103,7 +112,14 @@ export const loginStore = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
+export const getActiveStores = async (req, res) => {  
+  try {
+    const stores = await Store.find({ status: "Active" });
+    res.json(stores);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } 
+};
 // ✅ Get Store Details (protected)
 export const getStoreProfile = async (req, res) => {
   try {

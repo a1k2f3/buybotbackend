@@ -1,15 +1,57 @@
 import Product from "../models/Product.js";
+import Store from "../models/Store.js";
 
-// Create Product
 export const createProduct = async (req, res) => {
   try {
-    const product = new Product(req.body);
-    const savedProduct = await product.save();
-    res.status(201).json(savedProduct);
+    const {
+      name,
+      description,
+      price,
+      currency,
+      stock,
+      status,
+      sku,
+      images,
+      category,
+      brand,      // storeId
+      tags,
+      reviews
+    } = req.body;
+    // 1. Create product
+    const product = await Product.create({
+      name,
+      description,
+      price,
+      currency,
+      stock,
+      status,
+      sku,
+      images,
+      category,
+      brand,
+      tags,
+      reviews
+    });
+    // 2. Add product to the Store (brand == storeId)
+    if (brand) {
+      await Store.findByIdAndUpdate(
+        brand,
+        { $push: { products: product._id } },
+        { new: true }
+      );
+    }
+
+    // 3. Response
+    res.status(201).json({
+      message: "Product created successfully and added to store",
+      product
+    });
+
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 };
+
 
 // Get All Products
 export const getAllProducts = async (req, res) => {
