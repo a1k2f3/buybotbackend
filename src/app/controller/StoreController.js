@@ -37,36 +37,39 @@ export const submitStoreRequest = async (req, res) => {
 };
 export const approveStoreRequest = async (req, res) => {
   try {
-    const request = await Store.findById(req.params.id);
-    if (!request) return res.status(404).json({ message: "Request not found" });
+    const { id } = req.params;  // ID from body
 
-    const store = await Store.create({
-      name: request.name,
-      ownerName: request.ownerName,
-      email: request.email,
-      password: request.password,
-      description: request.description,
-      address: request.address,
-      contactNumber: request.contactNumber,
-      logo: request.logo,
-      city: request.city,
-      state: request.state,
-      postalCode: request.postalCode,
-      country: request.country,
-      socialLinks: request.socialLinks,
-      certificates: request.certificates,
-      documents: request.documents,
-      isVerified: true
+    if (!id) {
+      return res.status(400).json({ message: "ID is required" });
+    }
+
+    const request = await Store.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    // Update the SAME store request → set isVerified + status
+    const updatedStore = await Store.findByIdAndUpdate(
+      id,
+      {
+        isVerified: true,
+        status: "Active",
+        verificationStatus: "Approved"
+      },
+      { new: true }
+    );
+
+    res.json({
+      message: "Store approved successfully",
+      store: updatedStore
     });
 
-    request.status = "Approved";
-    await request.save();
-
-    res.json({ message: "Store approved successfully", store });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
+
+
 export const getAllStoreRequests = async (req, res) => {
   try {
     const requests = await Store.find({ isVerified: false }); 
@@ -76,6 +79,7 @@ export const getAllStoreRequests = async (req, res) => {
     res.status(500).json({ error: err.message });
   } 
 };
+
 export const rejectStoreRequest = async (req, res) => {
   try {
     const request = await Store.findById(req.params.id);
@@ -114,7 +118,7 @@ export const loginStore = async (req, res) => {
 };
 export const getActiveStores = async (req, res) => {  
   try {
-    const stores = await Store.find({ status: "Active" });
+    const stores = await Store.find({ status: "Active"});
     res.json(stores);
   } catch (err) {
     res.status(500).json({ error: err.message });

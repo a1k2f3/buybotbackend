@@ -1,7 +1,7 @@
 import express from "express";
 import connectDB from "./src/app/connection/db.js"; // import connection
 import productRoutes from "./src/app/route/ProductRoute.js";
-import categoryRoutes from "./src/app/route/CategoryController.js";
+import categoryRoutes from "./src/app/route/CategoryRoute.js";
 import StoreRoute from "./src/app/route/StoreRoute.js";
 import tagRoutes from "./src/app/route/tagRoute.js";
 import reviewRoutes from "./src/app/route/ReviewRoute.js";

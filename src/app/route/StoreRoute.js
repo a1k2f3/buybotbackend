@@ -18,7 +18,7 @@ const router = express.Router();
 router.post("/send-request",submitStoreRequest );
 router.get("/active-stores",getActiveStores );
 router.get("/store-requests",getAllStoreRequests );
-router.post("/register",approveStoreRequest );
+router.post("/register/:id",approveStoreRequest );
 router.post("/reject-request",rejectStoreRequest );
 router.post("/login", loginStore);
 router.get("/profile", protect, getStoreProfile);
