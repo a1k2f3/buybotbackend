@@ -24,7 +24,7 @@ const tagSchema = new mongoose.Schema(
     },
     color: {
       type: String,
-      default: "#6366f1", // Tailwind indigo-500
+      default: "#6366f1",
       match: [/^#[0-9A-F]{6}$/i, "Invalid hex color format"],
     },
     isActive: {
@@ -39,26 +39,66 @@ const tagSchema = new mongoose.Schema(
   }
 );
 
-// Auto-generate slug
-tagSchema.pre("save", function (next) {
+// CRITICAL FIX 1: Handle bulk insertMany() properly
+tagSchema.pre("save", async function (next) {
   if (this.isModified("name") || !this.slug) {
-    this.slug = this.name
+    const baseSlug = this.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
+
+    // Prevent duplicate slugs in bulk insert
+    if (mongoose.isInBulkOperation(this)) {
+      let slug = baseSlug;
+      let counter = 1;
+      while (await this.constructor.countDocuments({ slug })) {
+        slug = `${baseSlug}-${counter++}`;
+      }
+      this.slug = slug;
+    } else {
+      this.slug = baseSlug;
+    }
   }
   next();
 });
 
-// Virtual: Get all products that have this tag
+// Alternative (Recommended for insertMany): Use pre-insertMany hook
+tagSchema.pre("insertMany", async function (next, docs) {
+  const slugSet = new Set();
+  const nameToSlug = {};
+
+  for (const doc of docs) {
+    if (!doc.name) continue;
+
+    let baseSlug = doc.name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "");
+
+    // Ensure unique slug even in bulk
+    let slug = baseSlug;
+    let counter = 1;
+    while (slugSet.has(slug) || (await this.countDocuments({ slug }))) {
+      slug = `${baseSlug}-${counter++}`;
+    }
+
+    doc.slug = slug;
+    slugSet.add(slug);
+    nameToSlug[doc.name] = slug;
+  }
+
+  next();
+});
+
+// Virtuals (unchanged - perfect)
 tagSchema.virtual("products", {
-  ref: "Product",                    // Your Product model name
+  ref: "Product",
   localField: "_id",
-  foreignField: "tags",              // Field in Product that stores tag IDs
+  foreignField: "tags",
   justOne: false,
 });
 
-// Virtual: Just get the count (super fast & useful!)
 tagSchema.virtual("productCount", {
   ref: "Product",
   localField: "_id",
@@ -66,8 +106,9 @@ tagSchema.virtual("productCount", {
   count: true,
 });
 
-// Indexes for speed
+// Indexes (perfect)
 tagSchema.index({ slug: 1 });
+tagSchema.index({ name: 1 });
 tagSchema.index({ isActive: 1 });
 
 const Tag = mongoose.model("Tag", tagSchema);

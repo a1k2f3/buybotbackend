@@ -2,6 +2,58 @@ import Tag from "../models/Tag.js";
 import mongoose from "mongoose";
 
 // CREATE Tag (Admin only later)
+export const createManyTags = async (req, res) => {
+  try {
+    const tags = req.body; // Expecting an array of tag objects
+
+    // Validation: Must be an array
+    if (!Array.isArray(tags) || tags.length === 0) {
+      return res.status(400).json({
+        error: "Please provide a non-empty array of tags",
+      });
+    }
+
+    // Clean and prepare tags
+    const preparedTags = tags.map((tag) => ({
+      name: tag.name?.trim(),
+      description: tag.description?.trim(),
+      color: tag.color || "#6366f1", // default color
+    }));
+
+    // Insert many + ignore duplicates (perfect for seeding)
+    const result = await Tag.insertMany(preparedTags, {
+      ordered: false,     // Continue even if one fails (duplicate)
+      rawResult: true,    // Get detailed response
+    });
+
+    // Extract successfully created tags
+    const createdTags = Object.values(result.insertedDocs || {}).map(doc => ({
+      _id: doc._id,
+      name: doc.name,
+      slug: doc.slug,
+      color: doc.color,
+    }));
+
+    res.status(201).json({
+      success: true,
+      message: `${createdTags.length} tags created successfully`,
+      skipped: tags.length - createdTags.length,
+      data: createdTags,
+    });
+  } catch (err) {
+    if (err.writeErrors) {
+      // Some were skipped due to duplicates
+      const createdCount = err.result?.nInserted || 0;
+      res.status(201).json({
+        success: true,
+        message: `${createdCount} tags created, some skipped (already exist)`,
+        data: err.insertedDocs || [],
+      });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+};
 export const createTag = async (req, res) => {
   try {
     const { name, description, color } = req.body;
