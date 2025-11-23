@@ -39,41 +39,45 @@ const buildCategoryTree = async (parentId = null) => {
 // ──────────────────────────────────────────────────────────────
 // CREATE Category
 // ──────────────────────────────────────────────────────────────
+// controller/Categorycontroller.js
+
 export const createCategory = async (req, res) => {
   try {
-    const { name, description, parentCategory, image } = req.body;
+    const { name, description, parentCategory } = req.body;
 
     if (!name?.trim()) {
       return res.status(400).json({ error: "Category name is required" });
     }
 
-    // Check if parent exists
-    if (parentCategory) {
-      const parent = await Category.findById(parentCategory);
-      if (!parent) return res.status(400).json({ error: "Parent category not found" });
-    }
+    // Get image from Cloudinary (if uploaded)
+    const image = req.file
+      ? {
+          url: req.file.path,
+          public_id: req.file.filename,
+        }
+      : { url: "", public_id: "" };
 
-    const category = new Category({
+    const category = await Category.create({
       name: name.trim(),
-      description: description?.trim(),
+      description: description?.trim() || "",
       parentCategory: parentCategory || null,
-      image: image || { url: "", public_id: "" },
+      image,
     });
 
-    const savedCategory = await category.save();
-    await savedCategory.populate("parentCategory", "name slug image");
+    await category.populate("parentCategory", "name slug");
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
-      data: savedCategory,
+      message: "Category created successfully",
+      data: category,
     });
-  } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ error: "Category with this name already exists" });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: "Category name already exists" });
     }
-    return res.status(400).json({ error: err.message });
+    res.status(500).json({ error: error.message });
   }
-};
+};;
 
 // ──────────────────────────────────────────────────────────────
 // GET All Categories (Flat + with product count)
@@ -156,27 +160,25 @@ export const getCategoryById = async (req, res) => {
 // ──────────────────────────────────────────────────────────────
 // UPDATE Category
 // ──────────────────────────────────────────────────────────────
+// updateCategory (supports replacing image)
 export const updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
 
-    if (updates.parentCategory === id) {
-      return res.status(400).json({ error: "Category cannot be its own parent" });
-    }
-
-    if (updates.parentCategory) {
-      const parent = await Category.findById(updates.parentCategory);
-      if (!parent) return res.status(400).json({ error: "Parent category not found" });
+    // If new image uploaded
+    if (req.file) {
+      updates.image = {
+        url: req.file.path,
+        public_id: req.file.filename,
+      };
     }
 
     const updatedCategory = await Category.findByIdAndUpdate(
       id,
       { $set: updates },
       { new: true, runValidators: true }
-    )
-      .populate("parentCategory", "name slug")
-      .populate("productCount");
+    ).populate("parentCategory", "name slug");
 
     if (!updatedCategory) {
       return res.status(404).json({ error: "Category not found" });
@@ -184,16 +186,11 @@ export const updateCategory = async (req, res) => {
 
     res.json({
       success: true,
-      data: {
-        ...updatedCategory.toObject(),
-        productCount: updatedCategory.productCount || 0,
-      },
+      message: "Category updated successfully",
+      data: updatedCategory,
     });
-  } catch (err) {
-    if (err.code === 11000) {
-      return res.status(400).json({ error: "Category name already exists" });
-    }
-    res.status(400).json({ error: err.message });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
 };
 

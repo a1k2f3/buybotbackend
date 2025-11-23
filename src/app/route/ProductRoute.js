@@ -7,16 +7,23 @@ import {
   updateProductStatus,
   searchProducts,
   getSearchSuggestions,
+  getRandomProducts,
 } from "../controller/productController.js";
+import { uploadProductImages } from "../middleware/upload.js";
 
 const router = express.Router();
-// product route
-router.post("/", createProduct);
+
+// CREATE Product with multiple images
+router.post("/", uploadProductImages, createProduct);
+
+// UPDATE Product images (optional: replace or add more)
+router.put("/:id", uploadProductImages, updateProduct);
+router.get("products/random", getRandomProducts);//ok use this api for the multiple use
+// Other routes
 router.get("/", getAllProducts);
 router.get("/search", searchProducts);
 router.get("/:id", getProductById);
-router.put("/:id", updateProduct);
-router.get("/suggestions", getSearchSuggestions); 
+router.get("/suggestions", getSearchSuggestions);
 router.patch("/:id/status", updateProductStatus);
 
 export default router;
