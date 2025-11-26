@@ -49,13 +49,13 @@ export const createCategory = async (req, res) => {
       return res.status(400).json({ error: "Category name is required" });
     }
 
-    // Get image from Cloudinary (if uploaded)
-    const image = req.file
+    // Declare image object
+    let image = req.file
       ? {
           url: req.file.path,
           public_id: req.file.filename,
         }
-      : { url: "", public_id: "" };
+      : null; // <-- Do NOT insert empty url values
 
     const category = await Category.create({
       name: name.trim(),
@@ -77,7 +77,8 @@ export const createCategory = async (req, res) => {
     }
     res.status(500).json({ error: error.message });
   }
-};;
+};
+
 
 // ──────────────────────────────────────────────────────────────
 // GET All Categories (Flat + with product count)

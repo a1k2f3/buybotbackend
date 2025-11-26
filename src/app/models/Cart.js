@@ -13,7 +13,6 @@ const cartItemSchema = new mongoose.Schema({
     default: 1,
   },
 });
-
 const cartSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,

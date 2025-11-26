@@ -66,10 +66,8 @@ tagSchema.pre("save", async function (next) {
 tagSchema.pre("insertMany", async function (next, docs) {
   const slugSet = new Set();
   const nameToSlug = {};
-
   for (const doc of docs) {
     if (!doc.name) continue;
-
     let baseSlug = doc.name
       .toLowerCase()
       .trim()

@@ -1,4 +1,7 @@
 import express from "express";
+import cloudinary from "./src/app/Config/cloudinary.js"; 
+import dotenv from "dotenv";
+dotenv.config();
 import connectDB from "./src/app/connection/db.js"; // import connection
 import productRoutes from "./src/app/route/ProductRoute.js";
 import categoryRoutes from "./src/app/route/CategoryRoute.js";
@@ -9,9 +12,9 @@ import userRoute from "./src/app/route/UserRute.js";
 import cartRoute from "./src/app/route/cartRoute.js";
 import orderRoutes from "./src/app/route/orderRoutes.js";
 import riderRoutes from "./src/app/route/ReviewRoute.js";
-import dotenv from "dotenv";
+// import dotenv from "dotenv";
 import cors from "cors";
-dotenv.config();
+// dotenv.config();
 const app = express();
 app.use(cors('*'));
 app.use(express.json());
