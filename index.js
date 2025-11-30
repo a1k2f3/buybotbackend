@@ -16,7 +16,7 @@ import riderRoutes from "./src/app/route/ReviewRoute.js";
 import cors from "cors";
 // dotenv.config();
 const app = express();
-app.use(cors('*'));
+app.use(cors({ origin: "*" }))
 app.use(express.json());
 
 app.use(express.urlencoded({ extended: true }));
@@ -25,7 +25,7 @@ connectDB();
 app.use("/api/categories", categoryRoutes);
 app.use("/api/store", StoreRoute);
 app.use("/api/tags", tagRoutes);
-app.use("/api/reviews", reviewRoutes);
+app.use("/api/reviews", reviewRoutes);  
 app.use("/api/users", userRoute);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoute);
