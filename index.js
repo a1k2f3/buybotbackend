@@ -1,5 +1,5 @@
 import express from "express";
-import cloudinary from "./src/app/Config/cloudinary.js"; 
+import"./src/app/Config/cloudinary.js"; 
 import dotenv from "dotenv";
 dotenv.config();
 import connectDB from "./src/app/connection/db.js"; // import connection
@@ -18,6 +18,9 @@ import cors from "cors";
 const app = express();
 app.use(cors('*'));
 app.use(express.json());
+
+app.use(express.urlencoded({ extended: true }));
+
 connectDB();
 app.use("/api/categories", categoryRoutes);
 app.use("/api/store", StoreRoute);

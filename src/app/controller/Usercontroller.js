@@ -23,10 +23,7 @@ export const registerUser = async (req, res) => {
     if (existingUser) return res.status(400).json({ message: "Email already registered" });
 
     let store = null;
-    if (role === "store_owner") {
-      if (!storeName) return res.status(400).json({ message: "Store name required for store owners" });
-      store = await Store.create({ name: storeName });
-    }
+    
 
     const user = await User.create({
       name,

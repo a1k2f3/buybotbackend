@@ -2,13 +2,73 @@
 import Product from "../models/Product.js";
 import Store from "../models/Store.js";
 import cloudinary from "../Config/cloudinary.js";
+import mongoose from "mongoose";
+// BULK CREATE 20+ Products in 1 Request (Perfect for seeding)
 
+export const bulkCreateProducts = async (req, res) => {
+  try {
+    const products = req.body; // Expect array of product objects
+
+    if (!Array.isArray(products) || products.length === 0) {
+      return res.status(400).json({ error: "Send an array of products" });
+    }
+
+    const createdProducts = [];
+    const errors = [];
+
+    for (let i = 0; i < products.length; i++) {
+      const item = products[i];
+      try {
+        // Handle tags (string → array)
+        let parsedTags = [];
+        if (item.tags) {
+          parsedTags = typeof item.tags === "string" ? JSON.parse(item.tags) : item.tags;
+        }
+
+        const product = await Product.create({
+          name: item.name,
+          description: item.description,
+          price: Number(item.price),
+          currency: item.currency || "Rs",
+          stock: Number(item.stock),
+          status: item.status || "active",
+          sku: item.sku,
+          category: item.category,
+          brand: item.brand,
+          tags: parsedTags,
+          images: item.images || [], // You can pre-fill Cloudinary URLs
+          thumbnail: item.images?.[0]?.url || item.thumbnail || "",
+        });
+
+        // Add to store
+        if (item.brand) {
+          await Store.findByIdAndUpdate(item.brand, { $push: { products: product._id } });
+        }
+
+        createdProducts.push(product);
+      } catch (err) {
+        errors.push({ index: i, name: item.name, error: err.message });
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `${createdProducts.length} products created`,
+      failed: errors.length,
+      created: createdProducts.length,
+      errors,
+      data: createdProducts,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 // CREATE PRODUCT (Already updated with images)
 export const createProduct = async (req, res) => {
   try {
     const {
-      name, description, price, currency = "INR", stock = 0,
-      status = "draft", sku, category, brand, tags
+      name, description, price, currency ,stock,
+      status,sku,category, brand, tags
     } = req.body;
 
     const uploadedImages = req.files?.map(file => ({
@@ -37,7 +97,8 @@ export const createProduct = async (req, res) => {
       brand,
       tags: parsedTags,
       images: uploadedImages,
-      thumbnail: uploadedImages[0].url,
+      thumbnail: uploadedImages[0]?.url || "",
+      
     });
 
     if (brand) {
@@ -64,7 +125,7 @@ export const getRandomProducts = async (req, res) => {
     const { limit = 12, category, tag, brand } = req.query;
 
     // Build filter
-    const filter = { status: "published", stock: { $gt: 0 } }; // only in-stock
+    const filter = { status: "active", stock: { $gt: 0 } }; // only in-stock
 
     if (category) filter.category = category;
     if (tag) filter.tags = tag;
@@ -133,7 +194,7 @@ export const getAllProducts = async (req, res) => {
   try {
     const { page = 1, limit = 20, category, tag, brand, minPrice, maxPrice, status } = req.query;
 
-    const filter = { status: "published" };
+    const filter = { status: "active" };
     if (category) filter.category = category;
     if (tag) filter.tags = tag;
     if (brand) filter.brand = brand;
@@ -173,6 +234,7 @@ export const getProductById = async (req, res) => {
     const { id } = req.params;
     let product;
 
+    // Find by ID or slug
     if (mongoose.Types.ObjectId.isValid(id)) {
       product = await Product.findById(id);
     }
@@ -183,6 +245,7 @@ export const getProductById = async (req, res) => {
       return res.status(404).json({ error: "Product not found" });
     }
 
+    // Populate main product
     await product.populate([
       { path: "category", select: "name slug" },
       { path: "brand", select: "name storeName" },
@@ -190,12 +253,62 @@ export const getProductById = async (req, res) => {
       { path: "reviews", populate: { path: "user", select: "name avatar" } },
     ]);
 
+    // Get 8 random related products from SAME CATEGORY (excluding current product)
+    const relatedProducts = await Product.aggregate([
+      { $match: { 
+        category: product.category._id,
+        _id: { $ne: product._id },
+        status: "active",
+        stock: { $gt: 0 }
+      }},
+      { $sample: { size: 8 } }, // Magic: random 8
+      {
+        $lookup: {
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "category"
+        }
+      },
+      { $unwind: "$category" },
+      {
+        $lookup: {
+          from: "tags",
+          localField: "tags",
+          foreignField: "_id",
+          as: "tags"
+        }
+      },
+      {
+        $project: {
+          name: 1,
+          slug: 1,
+          price: 1,
+          currency: 1,
+          thumbnail: 1,
+          images: { $slice: ["$images", 1] },
+          rating: 1,
+          "category.name": 1,
+          "category.slug": 1,
+          "tags.name": 1,
+          "tags.slug": 1,
+          "tags.color": 1
+        }
+      }
+    ]);
+
     res.json({
       success: true,
       data: product,
+      relatedProducts: relatedProducts.length > 0 ? relatedProducts : null,
+      message: relatedProducts.length > 0 
+        ? `Found ${relatedProducts.length} related products` 
+        : "No related products found"
     });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Get Product Error:", error);
+    res.status(500).json({ error: "Server error" });
   }
 };
 
@@ -311,7 +424,7 @@ export const getSearchSuggestions = async (req, res) => {
 
     const suggestions = await Product.find({
       name: { $regex: q, $options: "i" },
-      status: "published",
+      status: "active",
     })
       .select("name slug images thumbnail")
       .limit(10);
