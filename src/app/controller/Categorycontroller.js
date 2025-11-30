@@ -107,18 +107,22 @@ export const getAllCategories = async (req, res) => {
 // ──────────────────────────────────────────────────────────────
 // GET Nested Category Tree (Best for Frontend Menus)
 // ──────────────────────────────────────────────────────────────
+// controllers/categoryController.js
 export const getCategoryTree = async (req, res) => {
   try {
+    // Add 8-second timeout to prevent Vercel 10s limit
+    const timeout = setTimeout(() => {
+      return res.status(504).json({ error: "Request timeout" });
+    }, 8000);
+
     const tree = await buildCategoryTree();
-    res.json({
-      success: true,
-      count: tree.length,
-      data: tree,
-    });
+    clearTimeout(timeout);
+
+    res.json({ success: true, data: tree });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-};
+};;
 
 // ──────────────────────────────────────────────────────────────
 // GET Single Category by ID or Slug (with products & subcategories)
