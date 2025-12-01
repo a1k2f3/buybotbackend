@@ -35,7 +35,9 @@ const buildCategoryTree = async (parentId = null) => {
 
   return tree;
 };
-
+let cachedTree = null;
+let cacheTime = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 // ──────────────────────────────────────────────────────────────
 // CREATE Category
 // ──────────────────────────────────────────────────────────────
@@ -79,7 +81,48 @@ export const createCategory = async (req, res) => {
   }
 };
 
+export const getCategoryTree = async (req, res) => {
+  try {
+    // Return cached version if fresh (blazing fast on warm Vercel functions)
+    if (cachedTree && cacheTime && Date.now() - cacheTime < CACHE_DURATION) {
+      return res.status(200).json({
+        success: true,
+        data: cachedTree,
+        cached: true,
+      });
+    }
 
+    // Build fresh tree (only on cold start or cache expired)
+    console.log("Building fresh category tree...");
+    const tree = await Promise.race([
+      buildCategoryTree(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Category tree build timeout")), 7500)
+      ), // 7.5s max – safe for Vercel 10s limit
+    ]);
+
+    // Cache it
+    cachedTree = tree;
+    cacheTime = Date.now();
+
+    res.status(200).json({
+      success: true,
+      data: tree,
+      count: tree.length,
+      cached: false,
+    });
+  } catch (err) {
+    console.error("getCategoryTree error:", err.message);
+
+    // Graceful fallback – return empty tree instead of crashing
+    res.status(200).json({
+      success: true,
+      data: [], // Don't break frontend
+      error: "Categories temporarily unavailable",
+      fallback: true,
+    });
+  }
+};
 // ──────────────────────────────────────────────────────────────
 // GET All Categories (Flat + with product count)
 // ──────────────────────────────────────────────────────────────
@@ -103,30 +146,6 @@ export const getAllCategories = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-
-// ──────────────────────────────────────────────────────────────
-// GET Nested Category Tree (Best for Frontend Menus)
-// ──────────────────────────────────────────────────────────────
-// controllers/categoryController.js
-export const getCategoryTree = async (req, res) => {
-  try {
-    // Add 8-second timeout to prevent Vercel 10s limit
-    // const timeout = setTimeout(() => {
-    //   return res.status(504).json({ error: "Request timeout" });
-    // }, 80000);
-
-    const tree = await buildCategoryTree();
-    // clearTimeout(timeout);
-
-    res.json({ success: true, data: tree });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};;
-
-// ──────────────────────────────────────────────────────────────
-// GET Single Category by ID or Slug (with products & subcategories)
-// ──────────────────────────────────────────────────────────────
 export const getCategoryById = async (req, res) => {
   try {
     const { id } = req.params;
