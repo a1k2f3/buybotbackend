@@ -4,40 +4,52 @@ import mongoose from "mongoose";
 // ──────────────────────────────────────────────────────────────
 // Helper: Build full nested category tree with product count (lightweight)
 // ──────────────────────────────────────────────────────────────
-const buildCategoryTree = async (parentId = null) => {
-  const categories = await Category.find({
-    parentCategory: parentId,
-    isActive: true,
-  })
-    .select("name slug description image parentCategory")
-    .sort({ name: 1 }) // Alphabetical order looks better in UI
-    .lean(); // Use lean() for performance
+let cachedTree = null;
+let cacheTime = null;
+const CACHE_DURATION = 5 * 60 * 1000;
+const buildCategoryTree = async () => {
+  try {
+    // Fetch only needed fields + lean for speed
+    const categories = await Category.find({})
+      .select("name slug image productCount parent")
+      .lean()
+      .exec();
 
-  const tree = await Promise.all(
-    categories.map(async (cat) => {
-      const children = await buildCategoryTree(cat._id);
+    const map = {};
+    const tree = [];
 
-      // Get product count using virtual (super fast!)
-      const populatedCat = await Category.findById(cat._id).populate("productCount");
-      const productCount = populatedCat.productCount || 0;
-
-      return {
+    // First pass: create map
+    categories.forEach((cat) => {
+      const item = {
         _id: cat._id,
         name: cat.name,
         slug: cat.slug,
-        description: cat.description,
         image: cat.image,
-        productCount,
-        subcategories: children.length > 0 ? children : undefined,
+        productCount: cat.productCount || 0,
+        children: [],
       };
-    })
-  );
+      map[cat._id] = item;
 
-  return tree;
+      // If no parent or parent not found → root
+      if (!cat.parent || !map[cat.parent]) {
+        tree.push(item);
+      }
+    });
+
+    // Second pass: attach children
+    categories.forEach((cat) => {
+      if (cat.parent && map[cat.parent]) {
+        map[cat.parent].children.push(map[cat._id]);
+      }
+    });
+
+    return tree;
+  } catch (err) {
+    console.error("buildCategoryTree error:", err);
+    throw err;
+  }
 };
-let cachedTree = null;
-let cacheTime = null;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+ // 5 minutes
 // ──────────────────────────────────────────────────────────────
 // CREATE Category
 // ──────────────────────────────────────────────────────────────
