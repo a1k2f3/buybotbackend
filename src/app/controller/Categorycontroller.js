@@ -111,12 +111,12 @@ export const getAllCategories = async (req, res) => {
 export const getCategoryTree = async (req, res) => {
   try {
     // Add 8-second timeout to prevent Vercel 10s limit
-    const timeout = setTimeout(() => {
-      return res.status(504).json({ error: "Request timeout" });
-    }, 80000);
+    // const timeout = setTimeout(() => {
+    //   return res.status(504).json({ error: "Request timeout" });
+    // }, 80000);
 
     const tree = await buildCategoryTree();
-    clearTimeout(timeout);
+    // clearTimeout(timeout);
 
     res.json({ success: true, data: tree });
   } catch (err) {
