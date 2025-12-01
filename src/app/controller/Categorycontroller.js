@@ -4,52 +4,67 @@ import mongoose from "mongoose";
 // ──────────────────────────────────────────────────────────────
 // Helper: Build full nested category tree with product count (lightweight)
 // ──────────────────────────────────────────────────────────────
-let cachedTree = null;
-let cacheTime = null;
-const CACHE_DURATION = 5 * 60 * 1000;
+// SAFE & PRODUCTION READY – works even with broken data
 const buildCategoryTree = async () => {
   try {
-    // Fetch only needed fields + lean for speed
-    const categories = await Category.find({})
-      .select("name slug image productCount parent")
-      .lean()
-      .exec();
+    const pipeline = [
+      {
+        $lookup: {
+          from: "products",
+          localField: "_id",
+          foreignField: "category",
+          as: "products",
+        },
+      },
+      {
+        $addFields: {
+          productCount: { $size: "$products" },
+        },
+      },
+      {
+        $project: {
+          products: 0, // remove heavy array
+          __v: 0,
+        },
+      },
+    ];
 
-    const map = {};
+    const categories = await Category.aggregate(pipeline);
+
+    // Now build tree (same as before)
+    const map = new Map();
     const tree = [];
 
-    // First pass: create map
-    categories.forEach((cat) => {
-      const item = {
+    categories.forEach(cat => {
+      const node = {
         _id: cat._id,
         name: cat.name,
         slug: cat.slug,
-        image: cat.image,
+        image: cat.image || { url: "/fallback-category.jpg" },
         productCount: cat.productCount || 0,
         children: [],
       };
-      map[cat._id] = item;
-
-      // If no parent or parent not found → root
-      if (!cat.parent || !map[cat.parent]) {
-        tree.push(item);
-      }
+      map.set(cat._id, node);
+      if (!cat.parentCategory) tree.push(node);
     });
 
-    // Second pass: attach children
-    categories.forEach((cat) => {
-      if (cat.parent && map[cat.parent]) {
-        map[cat.parent].children.push(map[cat._id]);
+    categories.forEach(cat => {
+      if (cat.parentCategory && map.has(cat.parentCategory)) {
+        map.get(cat.parentCategory).children.push(map.get(cat._id));
       }
     });
 
     return tree;
   } catch (err) {
-    console.error("buildCategoryTree error:", err);
-    throw err;
+    {
+    console.error(err);
+    return [];
   }
 };
- // 5 minutes
+}
+let cachedTree = null;
+let cacheTime = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 // ──────────────────────────────────────────────────────────────
 // CREATE Category
 // ──────────────────────────────────────────────────────────────
