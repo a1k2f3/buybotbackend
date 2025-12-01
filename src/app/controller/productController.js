@@ -253,59 +253,72 @@ export const getProductById = async (req, res) => {
       { path: "reviews", populate: { path: "user", select: "name avatar" } },
     ]);
 
-    // Get 8 random related products from SAME CATEGORY (excluding current product)
-    const relatedProducts = await Product.aggregate([
-      { $match: { 
-        category: product.category._id,
-        _id: { $ne: product._id },
-        status: "active",
-        stock: { $gt: 0 }
-      }},
-      { $sample: { size: 8 } }, // Magic: random 8
-      {
-        $lookup: {
-          from: "categories",
-          localField: "category",
-          foreignField: "_id",
-          as: "category"
-        }
-      },
-      { $unwind: "$category" },
-      {
-        $lookup: {
-          from: "tags",
-          localField: "tags",
-          foreignField: "_id",
-          as: "tags"
-        }
-      },
-      {
-        $project: {
-          name: 1,
-          slug: 1,
-          price: 1,
-          currency: 1,
-          thumbnail: 1,
-          images: { $slice: ["$images", 1] },
-          rating: 1,
-          "category.name": 1,
-          "category.slug": 1,
-          "tags.name": 1,
-          "tags.slug": 1,
-          "tags.color": 1
-        }
-      }
-    ]);
+    // ──────────────────────────────
+    // FIXED: Safe access to category.id
+    // ──────────────────────────────
+    const categoryId = product.category?._id || product.category;
+    if (!categoryId) {
+      console.log("Product has no category:", product._id);
+    }
+
+    // Get 8 random related products from SAME CATEGORY (safe fallback)
+    const relatedProducts = categoryId
+      ? await Product.aggregate([
+          {
+            $match: {
+              category: mongoose.Types.ObjectId.isValid(categoryId)
+                ? new mongoose.Types.ObjectId(categoryId)
+                : categoryId,
+              _id: { $ne: product._id },
+              status: "active",
+              stock: { $gt: 0 },
+            },
+          },
+          { $sample: { size: 8 } },
+          {
+            $lookup: {
+              from: "categories",
+              localField: "category",
+              foreignField: "_id",
+              as: "category",
+            },
+          },
+          { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+          {
+            $lookup: {
+              from: "tags",
+              localField: "tags",
+              foreignField: "_id",
+              as: "tags",
+            },
+          },
+          {
+            $project: {
+              name: 1,
+              slug: 1,
+              price: 1,
+              currency: 1,
+              thumbnail: 1,
+              images: { $slice: ["$images", 1] },
+              rating: 1,
+              "category.name": 1,
+              "category.slug": 1,
+              "tags.name": 1,
+              "tags.slug": 1,
+              "tags.color": 1,
+            },
+          },
+        ])
+      : [];
 
     res.json({
       success: true,
       data: product,
       relatedProducts: relatedProducts.length > 0 ? relatedProducts : null,
-      message: relatedProducts.length > 0 
-        ? `Found ${relatedProducts.length} related products` 
-        : "No related products found"
+      message: relatedProducts.length > 0
+        ? `Found ${relatedProducts.length} related products`
+        : "No related products found",
     });
-
   } catch (error) {
     console.error("Get Product Error:", error);
     res.status(500).json({ error: "Server error" });
