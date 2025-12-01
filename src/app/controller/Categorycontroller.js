@@ -110,43 +110,32 @@ export const createCategory = async (req, res) => {
 
 export const getCategoryTree = async (req, res) => {
   try {
-    // Return cached version if fresh (blazing fast on warm Vercel functions)
-    if (cachedTree && cacheTime && Date.now() - cacheTime < CACHE_DURATION) {
-      return res.status(200).json({
-        success: true,
-        data: cachedTree,
-        cached: true,
-      });
-    }
+    console.log("=== getCategoryTree called ===");
 
-    // Build fresh tree (only on cold start or cache expired)
-    console.log("Building fresh category tree...");
-    const tree = await Promise.race([
-      buildCategoryTree(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Category tree build timeout")), 7500)
-      ), // 7.5s max – safe for Vercel 10s limit
-    ]);
+    // Clear cache to force fresh build
+    cachedTree = null;
 
-    // Cache it
-    cachedTree = tree;
-    cacheTime = Date.now();
+    const tree = await buildCategoryTree();
 
-    res.status(200).json({
+    console.log("Tree built successfully:", tree.length, "root categories");
+
+    res.json({
       success: true,
       data: tree,
       count: tree.length,
-      cached: false,
     });
   } catch (err) {
-    console.error("getCategoryTree error:", err.message);
+    // THIS IS THE KEY — SHOW THE REAL ERROR
+    console.error("getCategoryTree FAILED:", err);
+    console.error("Error name:", err.name);
+    console.error("Error message:", err.message);
+    console.error("Stack:", err.stack);
 
-    // Graceful fallback – return empty tree instead of crashing
-    res.status(200).json({
-      success: true,
-      data: [], // Don't break frontend
-      error: "Categories temporarily unavailable",
-      fallback: true,
+    res.status(500).json({
+      success: false,
+      error: "Failed to build category tree",
+      details: err.message,
+      stack: process.env.NODE_ENV === "development" ? err.stack : undefined,
     });
   }
 };
