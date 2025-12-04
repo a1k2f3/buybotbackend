@@ -1,7 +1,7 @@
 // controllers/productController.js
 import Product from "../models/Product.js";
 import Store from "../models/Store.js";
-import cloudinary from "../Config/cloudinary.js";
+// import cloudinary from "../Config/cloudinary.js";
 import mongoose from "mongoose";
 // BULK CREATE 20+ Products in 1 Request (Perfect for seeding)
 

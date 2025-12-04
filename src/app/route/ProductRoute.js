@@ -20,7 +20,7 @@ router.post("/bulkproduct", uploadProductImages,bulkCreateProducts);
 
 // UPDATE Product images (optional: replace or add more)
 router.put("/:id", uploadProductImages, updateProduct);
-router.get("/random", getRandomProducts);//ok use this api for the multiple use
+router.get("/random",getRandomProducts);//ok use this api for the multiple use
 // Other routes
 router.get("/", getAllProducts);
 router.get("/search", searchProducts);

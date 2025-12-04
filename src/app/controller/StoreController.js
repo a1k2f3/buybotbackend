@@ -1,5 +1,6 @@
 import Store from "../models/Store.js";
 import jwt from "jsonwebtoken";
+import cloudinary from "../Config/cloudinary.js";
 // Helper function to create token
 const generateToken = (id) => {
   return jwt.sign({ id }, "secretkey", { expiresIn: "7d" }); // replace "secretkey" with env variable in production
@@ -8,31 +9,103 @@ const generateToken = (id) => {
 export const submitStoreRequest = async (req, res) => {
   try {
     const {
-      name, ownerName, email, password,
-      description, address, contactNumber,
-      logo, city, state, postalCode, country,
-      socialLinks, certificates, documents
+      name,
+      ownerName,
+      email,
+      password,
+      description = "",
+      address,
+      contactNumber,
+      city,
+      state,
+      postalCode,
+      country = "Pakistan",
+      facebook = "",
+      instagram = "",
+      website = "",
     } = req.body;
 
-    const existingRequest = await Store.findOne({ email });
-    if (existingRequest)
-      return res.status(400).json({ message: "Request already submitted" });
+    // Required fields check
+    if (!name || !ownerName || !email || !password || !address || !contactNumber) {
+      return res.status(400).json({ message: "Please fill all required fields." });
+    }
 
-    const request = await Store.create({
-      name, ownerName, email, password,
-      description, address, contactNumber,
-      logo, city, state, postalCode, country,
-      socialLinks, certificates, documents
+    // Check if email already used
+    const existingStore = await Store.findOne({ email });
+    if (existingStore) {
+      return res.status(400).json({ message: "A store request with this email already exists." });
+    }
+
+    // EXACTLY LIKE YOUR PRODUCT CONTROLLER - NO CLOUDINARY
+    const uploadedFiles = req.files || {};
+
+    // Logo
+    const logo = uploadedFiles.logo?.[0]
+      ? { url: uploadedFiles.logo[0].path, public_id: uploadedFiles.logo[0].filename }
+      : null;
+
+    // Documents - same simple pattern as Product
+    const documents = {
+      cnicFront: uploadedFiles.cnicFront?.[0]
+        ? { url: uploadedFiles.cnicFront[0].path, public_id: uploadedFiles.cnicFront[0].filename }
+        : null,
+
+      cnicBack: uploadedFiles.cnicBack?.[0]
+        ? { url: uploadedFiles.cnicBack[0].path, public_id: uploadedFiles.cnicBack[0].filename }
+        : null,
+
+      businessLicense: uploadedFiles.businessLicense?.[0]
+        ? { url: uploadedFiles.businessLicense[0].path, public_id: uploadedFiles.businessLicense[0].filename }
+        : null,
+
+      taxCertificate: uploadedFiles.taxCertificate?.[0]
+        ? { url: uploadedFiles.taxCertificate[0].path, public_id: uploadedFiles.taxCertificate[0].filename }
+        : null,
+
+      otherDocs: uploadedFiles.otherDocs?.map(file => ({
+        url: file.path,
+        public_id: file.filename,
+        name: file.originalname,
+      })) || [],
+    };
+
+    // Create the store request
+    const newStore = await Store.create({
+      name: name.trim(),
+      ownerName: ownerName.trim(),
+      email: email.toLowerCase().trim(),
+      password, // auto-hashed by your model
+      description: description.trim(),
+      address: address.trim(),
+      contactNumber: contactNumber.trim(),
+      city: city?.trim(),
+      state: state?.trim(),
+      postalCode: postalCode?.trim(),
+      country,
+      logo, // { url, public_id } - exactly like Product
+      socialLinks: {
+        facebook: facebook.trim(),
+        instagram: instagram.trim(),
+        website: website.trim(),
+      },
+      documents, // exactly like Product.images
+      verificationStatus: "Pending",
+      status: "Inactive",
     });
 
-    // TODO: Send email to admin for review
-
-    res.status(201).json({
-      message: "Store registration request submitted successfully",
-      requestId: request._id
+    return res.status(201).json({
+      success: true,
+      message: "Store registration request submitted successfully!",
+      requestId: newStore._id,
+      storeName: newStore.name,
     });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+
+  } catch (error) {
+    console.error("Store Request Error:", error);
+    return res.status(500).json({ 
+      message: "Failed to submit request", 
+      error: error.message 
+    });
   }
 };
 export const approveStoreRequest = async (req, res) => {
