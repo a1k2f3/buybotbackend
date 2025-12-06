@@ -78,7 +78,7 @@ export const loginUser = async (req, res) => {
 // 🧩 Get All Users
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().populate("store", "name");
+    const users = await User.find().populate("orders", "status totalPrice items");
     res.status(200).json(users);
   } catch (error) {
     res.status(500).json({ message: "Server Error", error: error.message });
@@ -88,7 +88,7 @@ export const getAllUsers = async (req, res) => {
 // 🧩 Get User by ID
 export const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).populate("store", "name");
+    const user = await User.findById(req.params.id).populate("orders", "status totalPrice items");
     if (!user) return res.status(404).json({ message: "User not found" });
     res.status(200).json(user);
   } catch (error) {

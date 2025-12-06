@@ -30,9 +30,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-   
+    orders: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Order",
+      },
+    ],
+    reviews: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Review",
+      },
+    ],
   },
-  { timestamps: true }
+  { timestamps: true } // Add timestamps for the User schema
 );
 
 // 🔒 Hash password before saving

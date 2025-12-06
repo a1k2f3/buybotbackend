@@ -16,6 +16,7 @@ const connectDB = async () => {
       // bufferMaxEntries: 0,               // Disable mongoose buffering
       maxPoolSize: 10,
     });
+    console.log()
     console.log("MongoDB Connected Successfully");
   } catch (err) {
     console.error("MongoDB Connection Failed:", err.message);

@@ -13,6 +13,9 @@ import cartRoute from "./src/app/route/cartRoute.js";
 import orderRoutes from "./src/app/route/orderRoutes.js";
 import riderRoutes from "./src/app/route/ReviewRoute.js";
 // import dotenv from "dotenv";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "./src/app/Config/swagger.js";
+
 import cors from "cors";
 // dotenv.config();
 const app = express();
@@ -25,6 +28,7 @@ connectDB();
 app.use(express.json({ limit: "100mb" }));
 
 // CORS
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
