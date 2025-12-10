@@ -172,6 +172,7 @@ export const getRandomProducts = async (req, res) => {
           "category.name": 1,
           "category.slug": 1,
           "brand.name": 1,
+          "brand.address": 1,
           "tags.name": 1,
           "tags.slug": 1,
           "tags.color": 1,
@@ -236,7 +237,7 @@ export const getProductById = async (req, res) => {
 
     // Find by ID or slug
     if (mongoose.Types.ObjectId.isValid(id)) {
-      product = await Product.findById(id);
+      product = await Product.findById(id).populate("brand");
     }
     if (!product) {
       product = await Product.findOne({ slug: id });

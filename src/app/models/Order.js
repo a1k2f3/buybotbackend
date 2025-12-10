@@ -14,6 +14,11 @@ const orderSchema = new mongoose.Schema(
           ref: "Store",
           required: true,
         },
+ storeId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Store",
+  required: true,
+},
         quantity: { type: Number, required: true },
         price: { type: Number, required: true },
       },
@@ -23,16 +28,16 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    storeId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Store",
-  required: true,
-},
+   
 
     shippingAddress: {
-      type: String,
-      required: true,
-    },
+  name: { type: String, required: true },
+  phone: { type: String, required: true },
+  address: { type: String, required: true },
+  city: { type: String, required: true },
+  pincode: { type: String, required: true },
+  country: { type: String, required: true },
+},
     status: {
       type: String,
       enum: ["Pending", "Processing", "Shipped", "Delivered", "Cancelled"],

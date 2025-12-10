@@ -5,16 +5,28 @@ import Store from "../models/Store.js";
 // 🧾 Create a new order from user's cart
 export const createOrder = async (req, res) => {
   try {
-    const userId = req.user.id;
+   const userId = req.query.userId 
+   ;
     const { shippingAddress, paymentMethod } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
 
     const cart = await Cart.findOne({ userId }).populate("items.productId");
     if (!cart || cart.items.length === 0) {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
+    // Check for any items where population failed
+    const invalidItems = cart.items.filter(item => !item.productId);
+    if (invalidItems.length > 0) {
+      return res.status(500).json({ message: "Some cart items have invalid or missing product data" });
+    }
+
     const orderItems = cart.items.map((item) => ({
       productId: item.productId._id,
+      storeId: item.storeId,
       quantity: item.quantity,
       price: item.productId.price,
     }));
@@ -44,19 +56,21 @@ export const createOrder = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
 // 📦 Get all orders for a user
 export const getUserOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ userId: req.user.id })
-      .populate("storeId", "storeName address") // 🏬 get store details
-      .sort({ createdAt: -1 });
+    const userId = req.query.userId;
+
+    const orders = await Order.find({ userId }).populate('items.storeId','name address city contactNumber' )
+      
 
     res.json(orders);
+
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
 
 // 🧍‍♂️ Admin - Get all orders
 export const getAllOrders = async (req, res) => {

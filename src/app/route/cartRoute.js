@@ -10,10 +10,12 @@ import { protect } from "../middleware/Usermiddleware.js";
 
 const router = express.Router();
 
-router.post("/add", protect, addToCart);
+// router.post("/add", protect, addToCart);
+router.post("/add", addToCart);
 router.get("/", protect, getCart);
 router.put("/update", protect, updateCartItem);
 router.delete("/remove/:productId", protect, removeCartItem);
+// router.delete("/remove/:productId", protect, removeCartItem);
 router.delete("/clear", protect, clearCart);
 
 export default router;

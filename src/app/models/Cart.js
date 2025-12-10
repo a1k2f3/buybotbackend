@@ -3,9 +3,11 @@ import mongoose from "mongoose";
 const cartItemSchema = new mongoose.Schema({
   productId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Store", // reference to product/store collection
+    ref: "Product",
     required: true,
   },
+
+  storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true },
   quantity: {
     type: Number,
     required: true,

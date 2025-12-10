@@ -11,13 +11,10 @@ import {
   bulkCreateProducts
 } from "../controller/productController.js";
 import { uploadProductImages } from "../middleware/upload.js";
-
 const router = express.Router();
-
 // CREATE Product with multiple images
 router.post("/", uploadProductImages, createProduct);
 router.post("/bulkproduct", uploadProductImages,bulkCreateProducts);
-
 // UPDATE Product images (optional: replace or add more)
 router.put("/:id", uploadProductImages, updateProduct);
 router.get("/random",getRandomProducts);//ok use this api for the multiple use

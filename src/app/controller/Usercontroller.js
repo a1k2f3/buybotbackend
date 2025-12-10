@@ -95,7 +95,6 @@ export const getUserById = async (req, res) => {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
-
 // 🧩 Update User
 export const updateUser = async (req, res) => {
   try {
