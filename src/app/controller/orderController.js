@@ -75,9 +75,8 @@ export const getUserOrders = async (req, res) => {
   try {
     const userId = req.query.userId;
 
-    const orders = await Order.find({ userId }).populate('items.storeId','name address city contactNumber' )
-      
-
+    const orders = await Order.find({ userId }).populate('items.storeId','name address city contactNumber' ).populate("items.productId","name price images description ").sort({ createdAt: -1 });
+  
     res.json(orders);
 
   } catch (error) {
@@ -99,8 +98,6 @@ export const getAllOrders = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-// Get orders by storeId
 export const getOrdersByStoreId = async (req, res) => {
   try {
     const { storeId } = req.query; // or req.query.storeId if you prefer query param
