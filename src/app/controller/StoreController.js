@@ -1,5 +1,7 @@
 import Store from "../models/Store.js";
 import jwt from "jsonwebtoken";
+ import mongoose from "mongoose";
+
 import cloudinary from "../Config/cloudinary.js";
 // Helper function to create token
 const generateToken = (id) => {
@@ -92,7 +94,7 @@ export const submitStoreRequest = async (req, res) => {
       verificationStatus: "Pending",
       status: "Inactive",
     });
-
+   
     return res.status(201).json({
       success: true,
       message: "Store registration request submitted successfully!",
@@ -172,21 +174,51 @@ export const rejectStoreRequest = async (req, res) => {
 export const loginStore = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const store = await Store.findOne({ email });
 
-    if (!store) return res.status(404).json({ message: "Store not found" });
+    // 1. Validate input
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required",
+      });
+    }
+
+    // 2. Find store
+    const store = await Store.findOne({ email }).select("+password"); // VERY IMPORTANT!
+
+    // 3. Check if store exists AND password is correct
+    if (!store) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    // Add safety: if password field is missing in DB
+    if (!store.password) {
+      console.error("Store found but password is missing in DB:", store._id);
+      return res.status(500).json({ message: "Account error. Contact support." });
+    }
 
     const isMatch = await store.matchPassword(password);
-    if (!isMatch) return res.status(401).json({ message: "Invalid password" });
 
-    res.json({
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    // 5. Success → send token
+    res.status(200).json({
       _id: store._id,
       name: store.name,
       email: store.email,
       token: generateToken(store._id),
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (error) {
+    // Now you will SEE the real error in console
+    console.error("LOGIN STORE ERROR:", error.message);
+    console.error(error.stack);
+
+    res.status(500).json({
+      message: "Server error during login",
+      // Remove this in production
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 export const getActiveStores = async (req, res) => {  
@@ -200,9 +232,24 @@ export const getActiveStores = async (req, res) => {
 // ✅ Get Store Details (protected)
 export const getStoreProfile = async (req, res) => {
   try {
-    const store = await Store.findById(req.store.id).populate("products");
-    if (!store) return res.status(404).json({ message: "Store not found" });
-    res.json(store);
+    const storeId = req.query.storeId;
+
+    if (!storeId) {
+      return res.status(401).json({ message: "Not authorized, no store ID" });
+    }
+
+    // ✅ Correct usage of findById
+    const store = await Store.findById(storeId)
+      .populate("products", "name price images status tags stock sku category");
+
+    if (!store) {
+      return res.status(404).json({ message: "Store not found" });
+    }
+
+    // Ensure products is always an array
+    const products = store.products || [];
+
+    res.json({ ...store.toObject(), products });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -3,6 +3,9 @@ import Product from "../models/Product.js";
 import Store from "../models/Store.js";
 // import cloudinary from "../Config/cloudinary.js";
 import mongoose from "mongoose";
+import Tag from "../models/Tag.js";
+import Category from "../models/Category.js";
+import Fuse from 'fuse.js';
 // BULK CREATE 20+ Products in 1 Request (Perfect for seeding)
 
 export const bulkCreateProducts = async (req, res) => {
@@ -190,6 +193,134 @@ export const getRandomProducts = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch random products" });
   }
 };
+// api/products/trending.js or add to your existing controller
+// controllers/productController.js or api/products/trending.js
+
+export const getProductsByTag = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const { limit = 12 } = req.query;
+    const limitNum = parseInt(limit, 10);
+
+    // 1️⃣ Find tag by slug
+    const tag = await Tag.findOne({
+      slug,
+      isActive: true,
+    }).select("_id");
+
+    if (!tag) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
+
+    // 2️⃣ Fetch products having this tag
+    const products = await Product.find({
+      status: "active",
+      stock: { $gt: 0 },
+      tags: tag._id, // 👈 IMPORTANT
+    })
+      .populate("category", "name slug")
+      .populate("brand", "name")
+      .populate("tags", "name slug color")
+      .select(
+        "name slug price currency thumbnail images rating views totalSold"
+      )
+      .limit(limitNum)
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products,
+    });
+  } catch (error) {
+    console.error("Get Products By Tag Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch products by tag",
+      error: error.message,
+    });
+  }
+};
+
+const getSmartTrending = async (limit) => {
+  return await Product.aggregate([
+    {
+      $match: {
+        status: "active",
+        stock: { $gt: 0 },
+      },
+    },
+    {
+      $addFields: {
+        popularityScore: {
+          $add: [
+            { $multiply: ["$views", 1] },         // 1 point per view
+            { $multiply: ["$totalSold", 10] },    // 10 points per sale
+          ],
+        },
+      },
+    },
+    { $sort: { popularityScore: -1 } },
+    { $limit: limit * 3 }, // Get more candidates
+    { $sample: { size: limit } }, // Randomize top performers
+    ...lookupPipeline(),
+  ]);
+};
+
+// Reusable lookup pipeline (same as your original)
+const lookupPipeline = () => [
+  {
+    $lookup: {
+      from: "categories",
+      localField: "category",
+      foreignField: "_id",
+      as: "category",
+    },
+  },
+  { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
+  {
+    $lookup: {
+      from: "tags",
+      localField: "tags",
+      foreignField: "_id",
+      as: "tags",
+    },
+  },
+  {
+    $lookup: {
+      from: "stores",
+      localField: "brand",
+      foreignField: "_id",
+      as: "brand",
+    },
+  },
+  { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+  {
+    $project: {
+      name: 1,
+      slug: 1,
+      price: 1,
+      currency: 1,
+      thumbnail: 1,
+      images: { $slice: ["$images", 1] },
+      rating: 1,
+      views: 1,
+      totalSold: 1,
+      trending: 1,
+      "category.name": 1,
+      "category.slug": 1,
+      "brand.name": 1,
+      "brand.logo": 1,
+      "tags.name": 1,
+      "tags.slug": 1,
+      "tags.color": 1,
+    },
+  },
+];
 // GET ALL PRODUCTS (with filters, pagination)
 export const getAllProducts = async (req, res) => {
   try {
@@ -325,7 +456,37 @@ export const getProductById = async (req, res) => {
     res.status(500).json({ error: "Server error" });
   }
 };
+export const getProductsByBrand = async (req, res) => {
+  try {
+    const { brandId } = req.query;
+    // 1. Must have brandId
+    if (!brandId) {
+      return res.status(400).json({ error: "brandId is required" });
+    }
+    // 2. Must be valid ObjectId string
+    if (!mongoose.Types.ObjectId.isValid(brandId)) {
+      return res.status(400).json({ error: "Invalid brandId format" });
+    }
+    // 3. THIS IS THE LINE THAT FIXES EVERYTHING
+   const products = await Product.find({
+  brand: new mongoose.Types.ObjectId(brandId),
+  status: "active",
+})
+  .select("name price images stock sku category tags")
+  .populate("category", "name")
+  .populate("tags", "name color");
+    // 4. Return empty array instead of 404 (better for frontend)
+    return res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products,
+    });
 
+  } catch (err) {
+    console.error("getProductsByBrand error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
+};
 // UPDATE PRODUCT (Supports replacing or adding images)
 export const updateProduct = async (req, res) => {
   try {
@@ -402,22 +563,39 @@ export const updateProductStatus = async (req, res) => {
 };
 
 // SEARCH PRODUCTS (Full-text search)
+// Install fuse.js: npm install fuse.js
+// const Fuse = require('fuse.js');
+
+
 export const searchProducts = async (req, res) => {
   try {
-    const { q, page = 1, limit = 20 } = req.query;
+    const { q, page = 2, limit = 20 } = req.query;
 
     if (!q || q.trim().length < 2) {
       return res.status(400).json({ error: "Search query too short" });
     }
 
-    const products = await Product.find({
-      $text: { $search: q },
-      status: "published",
-    })
-      .populate("category", "name")
+    // Fetch all active products with populated fields
+    const allProducts = await Product.find({ status: "active" })
+      .populate("category", "name slug")
       .populate("tags", "name color")
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .populate("brand", "name");
+
+    // Create Fuse instance for fuzzy search across multiple fields
+    const fuse = new Fuse(allProducts, {
+      keys: ['name', 'description', 'category.name', 'brand.name', 'tags.name'],
+      threshold: 0.4, // Adjust threshold for fuzziness (0 = exact, 1 = very loose)
+      includeScore: true // Include score for sorting by relevance
+    });
+
+    // Perform the search
+    const matches = fuse.search(q.trim());
+
+    // Apply pagination to the matched results
+    const pagedMatches = matches.slice((page - 1) * limit, page * limit);
+
+    // Extract the product items
+    const products = pagedMatches.map(match => match.item);
 
     res.json({
       success: true,
@@ -434,24 +612,58 @@ export const searchProducts = async (req, res) => {
 export const getSearchSuggestions = async (req, res) => {
   try {
     const { q } = req.query;
-    if (!q || q.length < 2) return res.json({ suggestions: [] });
 
-    const suggestions = await Product.find({
-      name: { $regex: q, $options: "i" },
-      status: "active",
-    })
-      .select("name slug images thumbnail")
-      .limit(10);
+    if (!q || q.trim().length < 2) {
+      return res.json({ success: true, suggestions: [] });
+    }
+
+    const query = q.trim();
+
+    // Fetch active products with necessary populated fields
+    const products = await Product.find({ status: "active" })
+      .select("name slug description thumbnail images category brand tags") // only what we need
+      .populate("category", "name")
+      .populate("brand", "name")
+      .populate("tags", "name");
+
+    if (products.length === 0) {
+      return res.json({ success: true, suggestions: [] });
+    }
+
+    // Setup Fuse for fuzzy matching
+    const fuse = new Fuse(products, {
+      keys: [
+        { name: 'name', weight: 0.6 },           // highest priority
+        { name: 'description', weight: 0.2 },
+        { name: 'category.name', weight: 0.1 },
+        { name: 'brand.name', weight: 0.1 },
+        { name: 'tags.name', weight: 0.1 },
+      ],
+      threshold: 0.4,           // same as main search for consistency
+      includeScore: true,
+      shouldSort: true,
+    });
+
+    // Get top 10 best matches
+    const results = fuse.search(query, { limit: 10 });
+
+    // Map to clean suggestion format (only essential data for dropdown)
+    const suggestions = results.map(({ item }) => ({
+      _id: item._id,
+      name: item.name,
+      slug: item.slug,
+      thumbnail: item.thumbnail || (item.images[0]?.url || null),
+    }));
 
     res.json({
       success: true,
       suggestions,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Search suggestions error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
-
 // DELETE PRODUCT (Also removes from Store + deletes images from Cloudinary)
 export const deleteProduct = async (req, res) => {
   try {

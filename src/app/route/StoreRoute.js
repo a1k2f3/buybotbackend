@@ -9,8 +9,8 @@ import {
   deleteStore,
   submitStoreRequest,
   getActiveStores
-  ,getAllStoreRequests
-
+  ,getAllStoreRequests,
+ 
 } from "../controller/StoreController.js";
 import { protect } from "../middleware/authstore.js";
 import { uploadStoreFiles, } from "../middleware/uploadstoredocs.js";
@@ -153,8 +153,9 @@ router.get("/store-requests",getAllStoreRequests );
 router.post("/register/:id",approveStoreRequest );
 router.post("/reject-request",rejectStoreRequest );
 router.post("/login", loginStore);
-router.get("/profile", protect, getStoreProfile);
+// router.get("/profile", protect, getStoreProfile);
+router.get("/profile", getStoreProfile);
 router.put("/:id", protect, updateStore);
+// router.get("/active-storesproduct",getProductsByStore );  
 router.delete("/:id", protect, deleteStore);
-
-export default router;
+export default router ;

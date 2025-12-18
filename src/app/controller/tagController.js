@@ -1,3 +1,4 @@
+import Product from "../models/Product.js";
 import Tag from "../models/Tag.js";
 import mongoose from "mongoose";
 
@@ -192,3 +193,6 @@ export const deleteTag = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+// controllers/productController.js or api/products/trending-by-tags.js
+
+
