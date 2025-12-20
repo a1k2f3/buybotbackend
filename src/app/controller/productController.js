@@ -70,57 +70,77 @@ export const bulkCreateProducts = async (req, res) => {
 export const createProduct = async (req, res) => {
   try {
     const {
-      name, description, price, currency ,stock,
-      status,sku,category, brand, tags
+      name,
+      description,
+      price,
+      currency,
+      stock,
+      status,
+      sku,
+      category,
+      brand,
+      tags, // this will be string | string[] from multipart
     } = req.body;
 
-    const uploadedImages = req.files?.map(file => ({
+    // Safely handle files
+    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+      return res.status(400).json({ error: "At least one image is required" });
+    }
+
+    const uploadedImages = req.files.map((file) => ({
       url: file.path,
       public_id: file.filename,
     }));
 
-    if (!uploadedImages || uploadedImages.length === 0) {
-      return res.status(400).json({ error: "At least one image is required" });
-    }
-
-    let parsedTags = [];
+    // Safely handle tags — multipart sends them as array or single string
+    let tagsArray = [];
     if (tags) {
-      parsedTags = typeof tags === "string" ? JSON.parse(tags) : tags;
+      if (Array.isArray(tags)) {
+        tagsArray = tags;
+      } else if (typeof tags === "string") {
+        tagsArray = [tags];
+      }
     }
 
+    // Create product
     const product = await Product.create({
-      name: name?.trim(),
-      description: description?.trim(),
+      name: name?.trim() || "",
+      description: description?.trim() || "",
       price: Number(price),
-      currency,
+      currency: currency || "INR", // or "RS" — match your schema
       stock: Number(stock),
-      status,
+      status: status || "active",
       sku: sku?.trim().toUpperCase(),
       category,
       brand,
-      tags: parsedTags,
+      tags: tagsArray,
       images: uploadedImages,
       thumbnail: uploadedImages[0]?.url || "",
-      
     });
 
+    // Update store with new product
     if (brand) {
       await Store.findByIdAndUpdate(brand, { $push: { products: product._id } });
     }
 
+    // Populate related fields
     await product.populate([
       { path: "category", select: "name slug" },
       { path: "brand", select: "name storeName" },
       { path: "tags", select: "name slug color" },
     ]);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Product created successfully",
       data: product,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Product creation error:", error); // ← This will show the real error in your server terminal
+    return res.status(500).json({
+      success: false,
+      error: error.message || "Internal server error",
+    });
   }
 };
 export const getRandomProducts = async (req, res) => {
