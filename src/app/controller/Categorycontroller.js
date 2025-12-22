@@ -180,10 +180,11 @@ export const getCategoryById = async (req, res) => {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    await category
-      .populate("parentCategory", "name slug image")
-      .populate("subcategories", "name slug image")
-      .populate("productCount");
+    await category.populate([
+      { path: "parentCategory", select: "name slug image" },
+      { path: "subcategories", select: "name slug image" },
+      "productCount"
+    ]);
 
     res.json({
       success: true,
