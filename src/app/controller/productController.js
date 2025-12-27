@@ -145,7 +145,7 @@ export const createProduct = async (req, res) => {
 };
 export const getRandomProducts = async (req, res) => {
   try {
-    const {  category, tag, brand } = req.query;
+    const { category, tag, brand } = req.query;
 
     // Build filter
     const filter = { status: "active", stock: { $gt: 0 } }; // only in-stock
@@ -154,10 +154,13 @@ export const getRandomProducts = async (req, res) => {
     if (tag) filter.tags = tag;
     if (brand) filter.brand = brand;
 
+    // Get the count of matching products
+    const count = await Product.countDocuments(filter);
+
     // Method 1: Fastest - using MongoDB aggregation (Recommended)
     const randomProducts = await Product.aggregate([
       { $match: filter },
-      { $sample: { size: Number(limit) } }, // This is the magic line
+      { $sample: { size: count } }, // Sample all to get random order
       {
         $lookup: {
           from: "categories",
