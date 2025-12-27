@@ -145,7 +145,7 @@ export const createProduct = async (req, res) => {
 };
 export const getRandomProducts = async (req, res) => {
   try {
-    const { limit = 12, category, tag, brand } = req.query;
+    const {  category, tag, brand } = req.query;
 
     // Build filter
     const filter = { status: "active", stock: { $gt: 0 } }; // only in-stock

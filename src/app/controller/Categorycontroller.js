@@ -170,8 +170,6 @@ export const getCategoryById = async (req, res) => {
     if (mongoose.Types.ObjectId.isValid(id)) {
       category = await Category.findById(id);
     }
-
-    // Fallback to slug
     if (!category) {
       category = await Category.findOne({ slug: id, isActive: true });
     }
