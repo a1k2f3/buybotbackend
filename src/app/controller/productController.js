@@ -76,7 +76,7 @@ export const createProduct = async (req, res) => {
       discountPrice,
       currency = "RS",
       stock,
-      status = "draft",
+      status = "active",
       sku,
       category,
       brand,
