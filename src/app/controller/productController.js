@@ -101,8 +101,11 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ error: "Category is required" });
     }
 
+    // Process uploaded files
+    const files = req.files ? Object.values(req.files).flat() : [];
+
     // Check if files were uploaded
-    if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+    if (files.length === 0) {
       return res.status(400).json({ error: "At least one image is required" });
     }
 
@@ -110,7 +113,7 @@ export const createProduct = async (req, res) => {
     const uploadedImages = [];
     const uploadedVideos = [];
 
-    req.files.forEach((file) => {
+    files.forEach((file) => {
       // Cloudinary attaches upload result to the file object
       const uploaded = file;
 
@@ -130,10 +133,9 @@ export const createProduct = async (req, res) => {
       }
 
       // Route to images or videos based on fieldname
-      if (file.fieldname === "images" || !file.fieldname.includes("video")) {
+      if (file.fieldname === "images") {
         uploadedImages.push(item);
-      } else {
-        // For videos field (e.g., "videos" or "videos[0]")
+      } else if (file.fieldname === "videos") {
         uploadedVideos.push(item);
       }
     });
