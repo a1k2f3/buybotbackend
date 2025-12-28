@@ -80,12 +80,11 @@ export const createProduct = async (req, res) => {
       sku,
       category,
       brand,
-      tags, // string | string[]
-      specifications, // JSON string or object (key-value specs)
+      tags,
+      specifications,
       warranty,
-      size, // string | string[] e.g., "M" or ["S", "M", "L"]
+      size,
       ageGroup,
-      // videos will come from req.files if uploaded (optional)
     } = req.body;
 
     // Validate required fields
@@ -102,29 +101,47 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ error: "Category is required" });
     }
 
-    // Handle images (required)
-    let uploadedImages = [];
+    // Check if files were uploaded
     if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
       return res.status(400).json({ error: "At least one image is required" });
     }
 
-    // Separate images and videos based on fieldname (assuming multer uses fieldname)
+    // Process uploaded files (images + videos) with Cloudinary eager thumbnail support
+    const uploadedImages = [];
+    const uploadedVideos = [];
+
     req.files.forEach((file) => {
-      if (file.fieldname === "images" || !file.fieldname.startsWith("video")) {
-        uploadedImages.push({
-          url: file.path,
-          public_id: file.filename,
-        });
+      // Cloudinary attaches upload result to the file object
+      const uploaded = file;
+
+      const item = {
+        url: uploaded.secure_url || uploaded.path, // secure_url is preferred
+        public_id: uploaded.public_id || uploaded.filename,
+      };
+
+      // === VIDEO THUMBNAIL EXTRACTION ===
+      if (
+        file.mimetype.startsWith("video/") &&
+        uploaded.eager &&
+        Array.isArray(uploaded.eager) &&
+        uploaded.eager[0]
+      ) {
+        item.thumbnail = uploaded.eager[0].secure_url; // Auto-generated thumbnail
+      }
+
+      // Route to images or videos based on fieldname
+      if (file.fieldname === "images" || !file.fieldname.includes("video")) {
+        uploadedImages.push(item);
+      } else {
+        // For videos field (e.g., "videos" or "videos[0]")
+        uploadedVideos.push(item);
       }
     });
 
-    // Handle videos (optional)
-    const uploadedVideos = req.files
-      .filter((file) => file.fieldname.startsWith("video") || file.fieldname === "videos")
-      .map((file) => ({
-        url: file.path,
-        public_id: file.filename,
-      }));
+    // Ensure at least one image
+    if (uploadedImages.length === 0) {
+      return res.status(400).json({ error: "At least one image is required" });
+    }
 
     // Handle tags
     let tagsArray = [];
@@ -146,18 +163,19 @@ export const createProduct = async (req, res) => {
       }
     }
 
-    // Parse specifications (usually sent as JSON string from frontend)
+    // Parse specifications
     let specsMap = new Map();
     if (specifications) {
       try {
-        const parsed = typeof specifications === "string"
-          ? JSON.parse(specifications)
-          : specifications;
+        const parsed =
+          typeof specifications === "string"
+            ? JSON.parse(specifications)
+            : specifications;
 
         if (typeof parsed === "object" && parsed !== null) {
           Object.entries(parsed).forEach(([key, value]) => {
-            if (typeof value === "string") {
-              specsMap.set(key.trim(), value.trim());
+            if (typeof value === "string" || typeof value === "number") {
+              specsMap.set(key.trim(), String(value).trim());
             }
           });
         }
@@ -168,8 +186,13 @@ export const createProduct = async (req, res) => {
 
     // Validate discountPrice
     const finalDiscountPrice = discountPrice ? Number(discountPrice) : undefined;
-    if (finalDiscountPrice !== undefined && (isNaN(finalDiscountPrice) || finalDiscountPrice >= Number(price))) {
-      return res.status(400).json({ error: "Discount price must be less than original price" });
+    if (
+      finalDiscountPrice !== undefined &&
+      (isNaN(finalDiscountPrice) || finalDiscountPrice >= Number(price))
+    ) {
+      return res.status(400).json({
+        error: "Discount price must be less than original price",
+      });
     }
 
     // Create product
@@ -186,7 +209,7 @@ export const createProduct = async (req, res) => {
       brand: brand || null,
       tags: tagsArray,
       images: uploadedImages,
-      videos: uploadedVideos,
+      videos: uploadedVideos, // Now includes thumbnail for each video
       thumbnail: uploadedImages[0]?.url || "",
       specifications: specsMap,
       warranty: warranty?.trim() || null,
@@ -199,7 +222,7 @@ export const createProduct = async (req, res) => {
       await Store.findByIdAndUpdate(brand, { $push: { products: product._id } });
     }
 
-    // Populate related fields for response
+    // Populate related fields
     await product.populate([
       { path: "category", select: "name slug" },
       { path: "brand", select: "name storeName logo" },
@@ -597,44 +620,56 @@ export const updateProduct = async (req, res) => {
 
     const updates = { ...req.body };
 
-    // === 1. Handle Images & Videos (Append or Replace?) ===
-    // By default, we APPEND new uploads instead of replacing all
+    // === 1. Process New Uploaded Files (Images + Videos with Thumbnails) ===
     let newImages = [];
     let newVideos = [];
 
     if (req.files && Array.isArray(req.files) && req.files.length > 0) {
       req.files.forEach((file) => {
+        // Cloudinary upload result is attached to file object
+        const uploaded = file;
+
         const item = {
-          url: file.path,
-          public_id: file.filename,
+          url: uploaded.secure_url || uploaded.path, // secure_url is preferred
+          public_id: uploaded.public_id || uploaded.filename,
         };
 
-        if (file.fieldname.startsWith("video") || file.fieldname === "videos") {
-          newVideos.push(item);
-        } else {
-          // Assume images by default
+        // === VIDEO THUMBNAIL EXTRACTION ===
+        if (
+          file.mimetype.startsWith("video/") &&
+          uploaded.eager &&
+          Array.isArray(uploaded.eager) &&
+          uploaded.eager[0]
+        ) {
+          item.thumbnail = uploaded.eager[0].secure_url; // Auto-generated thumbnail
+        }
+
+        // Classify as image or video based on fieldname
+        if (file.fieldname === "images" || !file.fieldname.includes("video")) {
           newImages.push(item);
+        } else {
+          newVideos.push(item);
         }
       });
 
-      // If new images are uploaded, update thumbnail to first new one (or keep existing)
+      // Update product thumbnail if new images are uploaded (use first new image)
       if (newImages.length > 0) {
         updates.thumbnail = newImages[0].url;
       }
     }
 
-    // === 2. Fetch current product to merge arrays properly ===
+    // === 2. Fetch existing product ===
     const existingProduct = await Product.findById(id);
     if (!existingProduct) {
       return res.status(404).json({ error: "Product not found" });
     }
 
-    // === 3. Merge Images (append new ones) ===
+    // === 3. Merge New Images (append) ===
     if (newImages.length > 0) {
       updates.images = [...existingProduct.images, ...newImages];
     }
 
-    // === 4. Merge Videos (append new ones) ===
+    // === 4. Merge New Videos (append with thumbnails) ===
     if (newVideos.length > 0) {
       updates.videos = [...existingProduct.videos, ...newVideos];
     }
@@ -648,15 +683,14 @@ export const updateProduct = async (req, res) => {
           updates.tags = updates.tags.split(",").map((t) => t.trim()).filter(Boolean);
         }
       }
-      // Ensure it's an array of ObjectIds (strings)
       if (Array.isArray(updates.tags)) {
         updates.tags = updates.tags.filter(Boolean);
       } else {
-        delete updates.tags; // invalid
+        delete updates.tags;
       }
     }
 
-    // === 6. Handle Size (array) ===
+    // === 6. Handle Size ===
     if (updates.size !== undefined) {
       let sizeArray = [];
       if (Array.isArray(updates.size)) {
@@ -670,7 +704,6 @@ export const updateProduct = async (req, res) => {
     // === 7. Handle Specifications (Map) ===
     if (updates.specifications !== undefined) {
       let specsMap = new Map();
-
       try {
         const input =
           typeof updates.specifications === "string"
@@ -687,11 +720,10 @@ export const updateProduct = async (req, res) => {
       } catch (err) {
         return res.status(400).json({ error: "Invalid specifications format. Must be valid JSON object." });
       }
-
       updates.specifications = specsMap;
     }
 
-    // === 8. Validate Price & Discount Price Relationship ===
+    // === 8. Validate Price & Discount Price ===
     if (updates.price !== undefined) {
       updates.price = Number(updates.price);
       if (isNaN(updates.price) || updates.price <= 0) {
@@ -700,8 +732,8 @@ export const updateProduct = async (req, res) => {
     }
 
     if (updates.discountPrice !== undefined) {
-      if (updates.discountPrice === "" || updates.discountPrice === null) {
-        updates.discountPrice = null; // allow removing discount
+      if (updates.discountPrice === "" || updates.discountPrice === null || updates.discountPrice === "null") {
+        updates.discountPrice = null;
       } else {
         updates.discountPrice = Number(updates.discountPrice);
         if (isNaN(updates.discountPrice) || updates.discountPrice < 0) {
@@ -714,22 +746,27 @@ export const updateProduct = async (req, res) => {
       }
     }
 
-    // === 9. Clean optional string fields ===
+    // === 9. Clean String Fields ===
     if (updates.name !== undefined) updates.name = updates.name.trim();
     if (updates.description !== undefined) updates.description = updates.description?.trim() || "";
     if (updates.warranty !== undefined) updates.warranty = updates.warranty?.trim() || null;
     if (updates.sku !== undefined) updates.sku = updates.sku?.trim().toUpperCase() || null;
+    if (updates.currency !== undefined) updates.currency = updates.currency.trim();
 
     // === 10. Perform Update ===
     const product = await Product.findByIdAndUpdate(
       id,
       { $set: updates },
-      { new: true, runValidators: true, context: "query" } // important for custom validators
+      { new: true, runValidators: true, context: "query" }
     ).populate([
       { path: "category", select: "name slug" },
       { path: "brand", select: "name storeName logo" },
       { path: "tags", select: "name slug color" },
     ]);
+
+    if (!product) {
+      return res.status(404).json({ error: "Product not found after update" });
+    }
 
     return res.json({
       success: true,
@@ -738,7 +775,7 @@ export const updateProduct = async (req, res) => {
     });
   } catch (error) {
     console.error("Product update error:", error);
-    return res.status(400).json({
+    return res.status(500).json({
       success: false,
       error: error.message || "Failed to update product",
     });

@@ -40,11 +40,12 @@ const productSchema = new mongoose.Schema(
 
     // Videos: similar structure to images
     videos: [
-      {
-        url: { type: String, required: true },
-        public_id: { type: String, required: true },
-      },
-    ],
+  {
+    url: { type: String, required: true },
+    public_id: { type: String, required: true },
+    thumbnail: { type: String }, // Auto-generated thumbnail URL
+  },
+],
 
     category: {
       type: mongoose.Schema.Types.ObjectId,
