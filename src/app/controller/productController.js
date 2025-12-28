@@ -148,10 +148,26 @@ export const createProduct = async (req, res) => {
     // Handle tags
     let tagsArray = [];
     if (tags) {
-      if (Array.isArray(tags)) {
-        tagsArray = tags;
-      } else if (typeof tags === "string") {
-        tagsArray = tags.split(",").map((t) => t.trim()).filter(Boolean);
+      let tempTags = tags;
+      if (typeof tempTags === "string") {
+        tempTags = tempTags.trim();
+        if (tempTags.startsWith('[') && tempTags.endsWith(']')) {
+          try {
+            tempTags = JSON.parse(tempTags);
+          } catch (err) {
+            // If parse fails, fall back to split
+          }
+        }
+      }
+      if (Array.isArray(tempTags)) {
+        tagsArray = tempTags.flatMap((t) => {
+          if (typeof t === "string") {
+            return t.trim() ? [t.trim()] : [];
+          }
+          return [];
+        });
+      } else if (typeof tempTags === "string") {
+        tagsArray = tempTags.split(",").map((t) => t.trim()).filter(Boolean);
       }
     }
 
