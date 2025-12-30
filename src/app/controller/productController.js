@@ -758,7 +758,7 @@ export const updateProduct = async (req, res) => {
           return res.status(400).json({ error: "Discount price must be a non-negative number" });
         }
         const finalPrice = updates.price ?? existingProduct.price;
-        if (updates.discountPrice >= finalPrice) {
+        if (updates.discountPrice < finalPrice) {
           return res.status(400).json({ error: "Discount price must be less than original price" });
         }
       }
@@ -805,7 +805,7 @@ export const updateProductStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!["draft", "published", "archived"].includes(status)) {
+    if (!["draft", "active", "inactive"].includes(status)) {
       return res.status(400).json({ error: "Invalid status" });
     }
 
