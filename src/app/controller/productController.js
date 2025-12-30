@@ -386,30 +386,30 @@ export const getProductsByTag = async (req, res) => {
   }
 };
 
-const getSmartTrending = async (limit) => {
-  return await Product.aggregate([
-    {
-      $match: {
-        status: "active",
-        stock: { $gt: 0 },
-      },
-    },
-    {
-      $addFields: {
-        popularityScore: {
-          $add: [
-            { $multiply: ["$views", 1] },         // 1 point per view
-            { $multiply: ["$totalSold", 10] },    // 10 points per sale
-          ],
-        },
-      },
-    },
-    { $sort: { popularityScore: -1 } },
-    { $limit: limit * 3 }, // Get more candidates
-    { $sample: { size: limit } }, // Randomize top performers
-    ...lookupPipeline(),
-  ]);
-};
+// const getSmartTrending = async (limit) => {
+//   return await Product.aggregate([
+//     {
+//       $match: {
+//         status: "active",
+//         stock: { $gt: 0 },
+//       },
+//     },
+//     {
+//       $addFields: {
+//         popularityScore: {
+//           $add: [
+//             { $multiply: ["$views", 1] },         // 1 point per view
+//             { $multiply: ["$totalSold", 10] },    // 10 points per sale
+//           ],
+//         },
+//       },
+//     },
+//     { $sort: { popularityScore: -1 } },
+//     { $limit: limit * 3 }, // Get more candidates
+//     { $sample: { size: limit } }, // Randomize top performers
+//     ...lookupPipeline(),
+//   ]);
+// };
 
 // Reusable lookup pipeline (same as your original)
 const lookupPipeline = () => [
@@ -758,9 +758,9 @@ export const updateProduct = async (req, res) => {
           return res.status(400).json({ error: "Discount price must be a non-negative number" });
         }
         const finalPrice = updates.price ?? existingProduct.price;
-        if (updates.discountPrice < finalPrice) {
-          return res.status(400).json({ error: "Discount price must be less than original price" });
-        }
+if (updates.discountPrice >= finalPrice) {
+  return res.status(400).json({ error: "Discount price must be less than the original price" });
+}
       }
     }
 
