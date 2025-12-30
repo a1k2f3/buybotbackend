@@ -10,7 +10,8 @@ import {
   getRandomProducts,
   bulkCreateProducts,
   getProductsByBrand,
-  getProductsByTag
+  getProductsByTag,
+  deleteProduct
 } from "../controller/productController.js";
 import { uploadProductMedia } from "../middleware/upload.js";
 const router = express.Router();
@@ -23,6 +24,7 @@ router.get("/random",getRandomProducts);//ok use this api for the multiple use
 // Other routes
 router.get("/", getAllProducts);
 router.get("/trending", getProductsByTag);
+router.get("/delete/:id",deleteProduct);
 // getTrendingProducts
 router.get("/search", searchProducts);
 router.get("/:id", getProductById);
