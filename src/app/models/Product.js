@@ -24,7 +24,7 @@ const productSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["active", "inactive", "draft"],
-      default: "draft",
+      default: "active",
     },
     sku: { type: String, unique: true, sparse: true },
 
