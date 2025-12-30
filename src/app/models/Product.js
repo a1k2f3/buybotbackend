@@ -5,20 +5,11 @@ const productSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     description: { type: String, trim: true },
     price: { type: Number, required: true, min: 0 },
-    discountPrice: { 
-      type: Number, 
-      min: 0,
-      validate: {
-        validator: function (value) {
-          // Discount price must be less than original price if provided
-          if (value !== undefined && value !== null) {
-            return value < this.price;
-          }
-          return true;
-        },
-        message: "Discount price must be less than the original price.",
-      },
-    },
+    discountPrice: {
+  type: Number,
+  min: [0, 'Discount price must be non-negative'],
+  default: null,
+},
     currency: { type: String, default: "Rs" },
     stock: { type: Number, required: true, min: 0 },
     status: {
