@@ -24,7 +24,7 @@ router.get("/random",getRandomProducts);//ok use this api for the multiple use
 // Other routes
 router.get("/", getAllProducts);
 router.get("/trending", getProductsByTag);
-router.get("/delete/:id",deleteProduct);
+router.delete("/delete/:id",deleteProduct);
 // getTrendingProducts
 router.get("/search", searchProducts);
 router.get("/:id", getProductById);
