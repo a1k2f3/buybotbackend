@@ -1,6 +1,7 @@
 // controllers/productController.js
 import Product from "../models/Product.js";
 import Store from "../models/Store.js";
+import cloudinary from "../Config/cloudinary.js";
 // import cloudinary from "../Config/cloudinary.js";
 import mongoose from "mongoose";
 import Tag from "../models/Tag.js";
@@ -936,11 +937,9 @@ export const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
     const product = await Product.findById(id);
-
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
-
     // Delete images from Cloudinary
     if (product.images && product.images.length > 0) {
       const deletePromises = product.images.map(img =>
