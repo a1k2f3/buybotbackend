@@ -386,34 +386,7 @@ export const getProductsByTag = async (req, res) => {
     });
   }
 };
-
-// const getSmartTrending = async (limit) => {
-//   return await Product.aggregate([
-//     {
-//       $match: {
-//         status: "active",
-//         stock: { $gt: 0 },
-//       },
-//     },
-//     {
-//       $addFields: {
-//         popularityScore: {
-//           $add: [
-//             { $multiply: ["$views", 1] },         // 1 point per view
-//             { $multiply: ["$totalSold", 10] },    // 10 points per sale
-//           ],
-//         },
-//       },
-//     },
-//     { $sort: { popularityScore: -1 } },
-//     { $limit: limit * 3 }, // Get more candidates
-//     { $sample: { size: limit } }, // Randomize top performers
-//     ...lookupPipeline(),
-//   ]);
-// };
-
-// Reusable lookup pipeline (same as your original)
-const lookupPipeline = () => [
+const commonLookupPipeline = () => [
   {
     $lookup: {
       from: "categories",
@@ -462,7 +435,27 @@ const lookupPipeline = () => [
     },
   },
 ];
-// GET ALL PRODUCTS (with filters, pagination)
+
+export const getSmartTrending = async (limit = 10) => {
+  return await Product.aggregate([
+    { $match: { status: "active", stock: { $gt: 0 } } },
+    {
+      $addFields: {
+        popularityScore: {
+          $add: [
+            { $multiply: [{ $ifNull: ["$views", 0] }, 1] },
+            { $multiply: [{ $ifNull: ["$totalSold", 0] }, 10] },
+          ],
+        },
+      },
+    },
+    { $sort: { popularityScore: -1 } },
+    { $limit: limit * 3 },
+    { $sample: { size: limit } },
+    ...commonLookupPipeline(),
+    { $project: { popularityScore: 0 } }, // Clean up temp field
+  ]);
+};
 export const getAllProducts = async (req, res) => {
   try {
     const { page = 1, limit = 20, category, tag, brand, minPrice, maxPrice, status } = req.query;
