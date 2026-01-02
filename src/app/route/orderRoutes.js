@@ -14,7 +14,7 @@ const router = express.Router();
 
 // user routes
 // router.post("/", createOrder);
-router.post("/", protect, createOrder);
+router.post("/",createOrder);
 // router.get("/", protect, getUserOrders);
 router.get("/", getUserOrders);
 // router.get("/",getUserOrders);
