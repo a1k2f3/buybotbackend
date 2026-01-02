@@ -19,6 +19,6 @@ router.get("/", getAllUsers);           // Get all users
 router.get("/:id", getUserById);        // Get user by ID
 router.put("/:id", updateUser);         // Update user
 router.delete("/:id", deleteUser);      // Delete user
-router.post("/addresses/:id", protect, addAddress);
-router.get("/addresses/:id", protect, getAddresses);
+router.post("/addresses/:id",addAddress);
+router.get("/addresses/:id",getAddresses);
 export default router;
