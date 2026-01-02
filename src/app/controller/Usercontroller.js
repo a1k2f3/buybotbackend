@@ -2,52 +2,77 @@ import User from "../models/User.js";
 import Store from "../models/Store.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-
+// import asyncHandler from "express-async-handler";
 // const JWT_SECRET = "your_jwt_secret_key"; // You can move this to .env
-
-// 🔹 Generate JWT
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: "7d" });
-};
+import { generateAccessToken, generateRefreshToken } from "../utils/generateToken.js";
 
 // 🧩 Register
 export const registerUser = async (req, res) => {
   try {
-    const { name, email, phone, password, address,} = req.body;
+    const { name, email, phone, password, address } = req.body;
 
+    // Validation
     if (!name || !email || !phone || !password) {
-      return res.status(400).json({ message: "All required fields must be filled" });
+      return res.status(400).json({
+        success: false,
+        message: "All required fields must be filled",
+      });
     }
 
+    // Check if user exists
     const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "Email already registered" });
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already registered",
+      });
+    }
 
-    let store = null;
-    
-
+    // Create user
     const user = await User.create({
       name,
-      email,
+      email: email.toLowerCase(),
       phone,
-      password,
-      // role,
-      address,
-      // store: store ? store._id : null,
+      password, // Will be hashed by pre-save middleware
+      addresses: address ? [address] : [], // Use array as per previous schema
     });
 
-    if (store) {
-      store.owner = user._id;
-      await store.save();
-    }
+    // Generate tokens
+    const accessToken = generateAccessToken(user._id, user.role || "customer");
+    const refreshToken = generateRefreshToken(user._id, user.role || "customer");
 
-    const token = generateToken(user._id, user.role);
+    // Save refresh token to user (for revocation & security)
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    // Set refresh token in httpOnly cookie (secure, not accessible via JS)
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // Send response
     res.status(201).json({
+      success: true,
       message: "User registered successfully",
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-      token,
+      accessToken, // Short-lived
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role || "customer",
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    console.error("Registration error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
@@ -55,23 +80,42 @@ export const registerUser = async (req, res) => {
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: "Email and password are required" });
 
-    const user = await User.findOne({ email }).select("+password");
-    if (!user) return res.status(400).json({ message: "Invalid email or password" });
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password required" });
+    }
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid email or password" });
+    const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
 
-    const token = generateToken(user._id, user.role);
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
 
-    res.status(200).json({
-      message: "Login successful",
-      user: { id: user._id, name: user.name, email: user.email, role: user.role },
-      token,
+    const accessToken = generateAccessToken(user._id, user.role);
+    const refreshToken = generateRefreshToken(user._id, user.role);
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    res.json({
+      success: true,
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
     });
   } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
@@ -114,7 +158,65 @@ export const updateUser = async (req, res) => {
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
+export const addAddress = async (req, res) => {
+  const { type, street, apartment, city, state, postalCode, country, isDefault } =
+    req.body;
+  const id = req.params.id;
+  const user = await User.findById(id);
 
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  const newAddress = {
+    type: type || "home",
+    street,
+    apartment,
+    city,
+    state,
+    postalCode,
+    country: country || "United States",
+    isDefault: isDefault || false,
+  };
+
+  // If this is set as default, unset others
+  if (isDefault) {
+    user.addresses.forEach((addr) => (addr.isDefault = false));
+  }
+
+  // If no addresses yet and not explicitly set as default, make this one default
+  if (user.addresses.length === 0 && !isDefault) {
+    newAddress.isDefault = true;
+  }
+
+  user.addresses.push(newAddress);
+  await user.save();
+
+  res.status(201).json({
+    success: true,
+    message: "Address added successfully",
+    address: newAddress,
+  });
+}
+
+// @desc    Get all addresses of the logged-in user
+// @route   GET /api/addresses
+// @access  Private
+export const getAddresses = async (req, res) => {
+  const id = req.params.id;
+  const user = await User.findById(id).select("addresses");
+
+  if (!user) {
+    res.status(404);
+    throw new Error("User not found");
+  }
+
+  res.json({
+    success: true,
+    addresses: user.addresses,
+  });
+}
 // 🧩 Delete User
 export const deleteUser = async (req, res) => {
   try {

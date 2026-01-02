@@ -6,7 +6,11 @@ import {
   getUserById,
   updateUser,
   deleteUser,
+  addAddress,
+  getAddresses,
 } from "../controller/Usercontroller.js";
+import { protect } from "../middleware/Usermiddleware.js";
+
 const router = express.Router();
 
 router.post("/register", registerUser); // Register
@@ -15,5 +19,6 @@ router.get("/", getAllUsers);           // Get all users
 router.get("/:id", getUserById);        // Get user by ID
 router.put("/:id", updateUser);         // Update user
 router.delete("/:id", deleteUser);      // Delete user
-
+router.post("/addresses/:id", protect, addAddress);
+router.get("/addresses/:id", protect, getAddresses);
 export default router;

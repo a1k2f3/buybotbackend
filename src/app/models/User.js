@@ -24,12 +24,46 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Password is required"],
       minlength: [6, "Password must be at least 6 characters"],
-      select: false, // don’t return password by default
+      select: false, // Password is excluded from query results by default
     },
-    address: {
-      type: String,
-      trim: true,
-    },
+    addresses: [
+      {
+        type: {
+          type: String,
+          enum: ["home", "work", "billing", "shipping", "other"],
+          default: "home",
+        },
+        street: {
+          type: String,
+          trim: true,
+        },
+        apartment: {
+          type: String,
+          trim: true,
+        },
+        city: {
+          type: String,
+          trim: true,
+        },
+        state: {
+          type: String,
+          trim: true,
+        },
+        postalCode: {
+          type: String,
+          trim: true,
+        },
+        country: {
+          type: String,
+          trim: true,
+          default: "pakistan",
+        },
+        isDefault: {
+          type: Boolean,
+          default: false,
+        },
+      },
+    ],
     orders: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -43,18 +77,19 @@ const userSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true } // Add timestamps for the User schema
+  { timestamps: true }
 );
 
-// 🔒 Hash password before saving
+// Hash password before saving the user document
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
+
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();
 });
 
-// Compare password
+// Instance method to compare entered password with hashed password
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
