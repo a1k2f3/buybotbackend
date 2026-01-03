@@ -250,10 +250,11 @@ export const updateOrderStatus = async (req, res) => {
 export const cancelOrder = async (req, res) => {
   try {
     const { orderId } = req.params;
+    const { id } = req.params;
 
     const order = await Order.findOne({
       _id: orderId,
-      userId: req.user.id,
+      userId: id
     });
 
     if (!order) return res.status(404).json({ message: "Order not found" });

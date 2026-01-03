@@ -24,7 +24,7 @@ router.get("/store-orders",getOrdersByStoreId);
 // router.get("/store-orders", protect, getOrdersByStoreId);
 // admin routes
 router.get("/all", getAllOrders);
-router.put("/update/:orderId", updateOrderStatus);
+router.put("/update/:orderId",updateOrderStatus);
 // router.get("/store/order/:orderId", protect, getOrderDetailById);
 router.get("/store/order/:orderId", getOrderDetailById);
 export default router;
