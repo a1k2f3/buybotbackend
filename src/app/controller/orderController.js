@@ -42,6 +42,7 @@ export const createOrder = async (req, res) => {
       totalAmount,
       shippingAddress,
       paymentMethod,
+      size: orderItems.size
     });
 
     await newOrder.save();
