@@ -90,7 +90,7 @@ export const getAllOrders = async (req, res) => {
   try {
     const orders = await Order.find()
       .populate("userId", "name email phone") // 🧑 Works fine (top-level)
-      .populate("items.storeId", "storeName address phone") // 🏬 Correct path for nested storeId
+      .populate("items.storeId", "name address contactNumber") // 🏬 Correct path for nested storeId
       .sort({ createdAt: -1 });
 
     res.json(orders);
