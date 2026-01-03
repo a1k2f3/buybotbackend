@@ -9,6 +9,7 @@ export const addToCart = async (req, res) => {
   try {
     const userId = req.query.userId;
     const { productId, storeId, quantity = 1, size } = req.body;
+
     // Validation
     if (!userId) return res.status(400).json({ message: "User ID is required" });
     if (!productId || !storeId)
