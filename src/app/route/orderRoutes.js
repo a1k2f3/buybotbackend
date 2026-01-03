@@ -18,7 +18,7 @@ router.post("/",createOrder);
 // router.get("/", protect, getUserOrders);
 router.get("/", getUserOrders);
 // router.get("/",getUserOrders);
-router.delete("/cancel/:orderId", protect, cancelOrder);
+router.delete("/cancel/:orderId",cancelOrder);
 // router.get("/all-orders", protect, getAllOrders);
 router.get("/store-orders",getOrdersByStoreId);
 // router.get("/store-orders", protect, getOrdersByStoreId);
