@@ -12,7 +12,8 @@ import {
   getProductsByBrand,
   getProductsByTag,
   deleteProduct,
-  getSmartTrending
+  getSmartTrending,
+  getProductsByCategorySlug
 } from "../controller/productController.js";
 import { uploadProductMedia } from "../middleware/upload.js";
 const router = express.Router();
@@ -30,6 +31,7 @@ router.get("/trending", getProductsByTag);
 router.get("/smarttrending",getSmartTrending);
 router.delete("/delete/:id",deleteProduct);
 // getTrendingProducts
+router.get("/category/:slug", getProductsByCategorySlug);
 router.get("/search", searchProducts);
 router.get("/:id", getProductById);
 router.get("/search/suggestions", getSearchSuggestions);
