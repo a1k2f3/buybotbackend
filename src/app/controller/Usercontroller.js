@@ -142,14 +142,14 @@ export const getUserById = async (req, res) => {
 // 🧩 Update User
 export const updateUser = async (req, res) => {
   try {
-    const { name, phone, address, role } = req.body;
+    const { name, phone, addresses, role } = req.body;
     const user = await User.findById(req.params.id);
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
     user.name = name || user.name;
     user.phone = phone || user.phone;
-    user.address = address || user.address;
+    user.addresses = addresses || user.addresses;
     user.role = role || user.role;
 
     await user.save();
