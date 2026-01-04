@@ -265,20 +265,27 @@ export const getRandomProducts = async (req, res) => {
   try {
     const { category, tag, brand } = req.query;
 
-    // Build filter
-    const filter = { status: "active", stock: { $gt: 0 } }; // only in-stock
+    // Fixed limit: always 10 products max for speed
+    const LIMIT = 10;
+
+    // Build filter: only active & in-stock products
+    const filter = {
+      status: "active",
+      stock: { $gt: 0 },
+    };
 
     if (category) filter.category = category;
     if (tag) filter.tags = tag;
     if (brand) filter.brand = brand;
 
-    // Get the count of matching products
-    const count = await Product.countDocuments(filter);
-
-    // Method 1: Fastest - using MongoDB aggregation (Recommended)
+    // Efficient aggregation: match → random sample (10) → populate → project
     const randomProducts = await Product.aggregate([
       { $match: filter },
-      { $sample: { size: count } }, // Sample all to get random order
+
+      // Get exactly 10 random products (fastest method)
+      { $sample: { size: LIMIT } },
+
+      // Populate category
       {
         $lookup: {
           from: "categories",
@@ -288,14 +295,8 @@ export const getRandomProducts = async (req, res) => {
         },
       },
       { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "tags",
-          localField: "tags",
-          foreignField: "_id",
-          as: "tags",
-        },
-      },
+
+      // Populate brand (store)
       {
         $lookup: {
           from: "stores",
@@ -305,18 +306,34 @@ export const getRandomProducts = async (req, res) => {
         },
       },
       { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
+
+      // Populate tags
+      {
+        $lookup: {
+          from: "tags",
+          localField: "tags",
+          foreignField: "_id",
+          as: "tags",
+        },
+      },
+
+      // Project only needed fields (minimal data transfer)
       {
         $project: {
+          _id: 1,
           name: 1,
           slug: 1,
           price: 1,
+          discountPrice: 1,
           thumbnail: 1,
-          images: { $slice: ["$images", 1] }, // only first image
-          rating: 1,
+          images: { $slice: ["$images", 1] }, // Only first image
+          stock: 1,
+          "category._id": 1,
           "category.name": 1,
           "category.slug": 1,
+          "brand._id": 1,
           "brand.name": 1,
-          "brand.address": 1,
+          "tags._id": 1,
           "tags.name": 1,
           "tags.slug": 1,
           "tags.color": 1,
@@ -330,8 +347,11 @@ export const getRandomProducts = async (req, res) => {
       data: randomProducts,
     });
   } catch (error) {
-    console.error("Get Random Products Error:", error);
-    res.status(500).json({ error: "Failed to fetch random products" });
+    console.error("Get Random Products Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch products",
+    });
   }
 };
 // api/products/trending.js or add to your existing controller
