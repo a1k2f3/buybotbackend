@@ -3,6 +3,7 @@ import Product from "../models/Product.js";
 import Store from "../models/Store.js";
 import cloudinary from "../Config/cloudinary.js";
 // import cloudinary from "../Config/cloudinary.js";
+import NodeCache from 'node-cache';
 import mongoose from "mongoose";
 import Tag from "../models/Tag.js";
 import Category from "../models/Category.js";
@@ -261,79 +262,97 @@ export const createProduct = async (req, res) => {
     });
   }
 };
+const cache = new NodeCache({ stdTTL: 300 }); // 5-minute cache
+
 export const getRandomProducts = async (req, res) => {
   try {
     const { category, tag, brand } = req.query;
 
+    // Unique cache key based on filters
+    const cacheKey = `random_products_all:${category || 'all'}:${tag || 'all'}:${brand || 'all'}`;
+
+    // Check cache first
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return res.json({
+        success: true,
+        count: cached.length,
+        data: cached,
+        cached: true,
+      });
+    }
+
     // Build filter
-    const filter = { status: "active", stock: { $gt: 0 } }; // only in-stock
+    const filter = {
+      status: "active",
+      stock: { $gt: 0 },
+    };
 
     if (category) filter.category = category;
     if (tag) filter.tags = tag;
     if (brand) filter.brand = brand;
 
-    // Get the count of matching products
-    const count = await Product.countDocuments(filter);
+    // First, get total count of matching documents
+    const totalCount = await Product.countDocuments(filter);
 
-    // Method 1: Fastest - using MongoDB aggregation (Recommended)
+    if (totalCount === 0) {
+      return res.json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
+
+    // Use $sample to get all documents in random order
+    // MongoDB's $sample is efficient even for larger sets when used after $match
     const randomProducts = await Product.aggregate([
       { $match: filter },
-      { $sample: { size: count } }, // Sample all to get random order
-      {
-        $lookup: {
-          from: "categories",
-          localField: "category",
-          foreignField: "_id",
-          as: "category",
-        },
-      },
-      { $unwind: { path: "$category", preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: "tags",
-          localField: "tags",
-          foreignField: "_id",
-          as: "tags",
-        },
-      },
-      {
-        $lookup: {
-          from: "stores",
-          localField: "brand",
-          foreignField: "_id",
-          as: "brand",
-        },
-      },
-      { $unwind: { path: "$brand", preserveNullAndEmptyArrays: true } },
-      {
-        $project: {
-          name: 1,
-          slug: 1,
-          price: 1,
-          thumbnail: 1,
-          images: { $slice: ["$images", 1] }, // only first image
-          rating: 1,
-          "category.name": 1,
-          "category.slug": 1,
-          "brand.name": 1,
-          "brand.address": 1,
-          "tags.name": 1,
-          "tags.slug": 1,
-          "tags.color": 1,
-        },
-      },
+      { $sample: { size: totalCount } }, // Shuffle all matching products
     ]);
+
+    // Populate related fields efficiently
+    await Product.populate(randomProducts, [
+      { path: "category", select: "name slug" },
+      { path: "brand", select: "name address" },
+      { path: "tags", select: "name slug color" },
+    ]);
+
+    // Manually project to control exact output shape
+    const projected = randomProducts.map(product => ({
+      _id: product._id,
+      name: product.name,
+      slug: product.slug,
+      price: product.price,
+      thumbnail: product.thumbnail,
+      images: product.images?.slice(0, 1), // only first image
+      rating: product.rating,
+      category: product.category
+        ? { name: product.category.name, slug: product.category.slug }
+        : null,
+      brand: product.brand
+        ? { name: product.brand.name, address: product.brand.address }
+        : null,
+      tags: product.tags?.map(t => ({
+        name: t.name,
+        slug: t.slug,
+        color: t.color,
+      })),
+    }));
+
+    // Cache the full result
+    cache.set(cacheKey, projected);
 
     res.json({
       success: true,
-      count: randomProducts.length,
-      data: randomProducts,
+      count: projected.length,
+      data: projected,
+      cached: false,
     });
   } catch (error) {
     console.error("Get Random Products Error:", error);
     res.status(500).json({ error: "Failed to fetch random products" });
   }
-};
+};;
 // api/products/trending.js or add to your existing controller
 // controllers/productController.js or api/products/trending.js
 
