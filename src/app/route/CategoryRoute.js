@@ -10,6 +10,7 @@ import {
 } from "../controller/Categorycontroller.js";
 
 import { uploadCategoryImage } from "../middleware/uploadCategory.js";
+import { getProductsByCategorySlug } from "../controller/productController.js";
 
 const router = express.Router();
 
@@ -17,7 +18,7 @@ const router = express.Router();
 router.get("/tree", getCategoryTree);
 router.get("/", getAllCategories);
 router.get("/:id", getCategoryById);
-
+router.get("/category/:slug", getProductsByCategorySlug);
 // ADMIN ROUTES - Now with Cloudinary image upload!
 router.post(
   "/",

@@ -435,7 +435,55 @@ const commonLookupPipeline = () => [
     },
   },
 ];
+export const getProductsByCategorySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
 
+    // 1️⃣ Find category by slug
+    const category = await Category.findOne({ slug });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
+
+    // 2️⃣ Find products using category _id
+    const products = await Product.find({
+      category: category._id,
+      status: "active",
+    })
+      .populate("category", "name slug")
+      .populate("brand", "name")
+      .populate("tags", "name")
+      .sort({ createdAt: -1 });
+
+    if (!products.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No products found for this category",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      category: {
+        id: category._id,
+        name: category.name,
+        slug: category.slug,
+      },
+      count: products.length,
+      products,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: error.message,
+    });
+  }
+};
 export const getSmartTrending = async (limit = 10) => {
   return await Product.aggregate([
     { $match: { status: "active", stock: { $gt: 0 } } },
