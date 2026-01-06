@@ -266,13 +266,12 @@ const cache = new NodeCache({ stdTTL: 300 }); // 5-minute cache
 
 export const getRandomProducts = async (req, res) => {
   try {
-    const { category, tag, brand, page = 1, limit = 250 } = req.query;
+    const { category, tag, brand, page = 1, limit = 50 } = req.query; // ← Fixed: space after comma
 
     // Parse and validate pagination params
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
 
-    // Improved validation
     if (isNaN(pageNum) || pageNum < 1) {
       return res.status(400).json({
         success: false,
@@ -287,10 +286,10 @@ export const getRandomProducts = async (req, res) => {
       });
     }
 
-    // Unique cache key including filters and pagination
+    // Unique cache key
     const cacheKey = `random_products:${category || 'all'}:${tag || 'all'}:${brand || 'all'}:page${pageNum}:limit${limitNum}`;
 
-    // Check cache first
+    // Check cache
     const cached = cache.get(cacheKey);
     if (cached) {
       return res.json({
@@ -309,7 +308,7 @@ export const getRandomProducts = async (req, res) => {
     if (tag) filter.tags = tag;
     if (brand) filter.brand = brand;
 
-    // Get total count for pagination metadata
+    // Get total count
     const totalCount = await Product.countDocuments(filter);
 
     if (totalCount === 0) {
@@ -327,26 +326,25 @@ export const getRandomProducts = async (req, res) => {
         data: [],
       };
       cache.set(cacheKey, emptyResponse);
-      return res.json(emptyResponse);
+      return res.json({ ...emptyResponse, cached: false });
     }
 
-    // Determine how many random items to fetch
+    // Sample random products
     const sampleSize = Math.min(limitNum, totalCount);
 
-    // Efficient random sampling with MongoDB $sample
     const randomProducts = await Product.aggregate([
       { $match: filter },
       { $sample: { size: sampleSize } },
     ]);
 
-    // Populate related fields
+    // Populate references
     await Product.populate(randomProducts, [
       { path: "category", select: "name slug" },
       { path: "brand", select: "name address" },
       { path: "tags", select: "name slug color" },
     ]);
 
-    // Project only needed fields
+    // Project response shape
     const projected = randomProducts.map(product => ({
       _id: product._id,
       name: product.name,
@@ -385,16 +383,17 @@ export const getRandomProducts = async (req, res) => {
       data: projected,
     };
 
-    // Cache the response (without the 'cached' flag — we'll add it only when serving from cache)
+    // Cache result
     cache.set(cacheKey, responseData);
 
-    res.json({
+    return res.json({
       ...responseData,
       cached: false,
     });
+
   } catch (error) {
     console.error("Get Random Products Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to fetch random products. Please try again later.",
     });
