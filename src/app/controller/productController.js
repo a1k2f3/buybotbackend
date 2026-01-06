@@ -266,29 +266,35 @@ const cache = new NodeCache({ stdTTL: 300 }); // 5-minute cache
 
 export const getRandomProducts = async (req, res) => {
   try {
-    const { category, tag, brand, page = 1, limit = 250 } = req.query;
+    const { category, tag, brand, page = 1, limit = 12 } = req.query;
 
+    // Parse and validate pagination params
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
 
-    if (pageNum < 1 || limitNum < 1 || limitNum > 100) {
+    // Improved validation
+    if (isNaN(pageNum) || pageNum < 1) {
       return res.status(400).json({
         success: false,
-        message: "Invalid page or limit. Page must be >= 1, limit between 1 and 100.",
+        message: "Invalid 'page' parameter. It must be a positive integer (>= 1).",
       });
     }
 
-    // Unique cache key including pagination
+    if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid 'limit' parameter. It must be an integer between 1 and 100.",
+      });
+    }
+
+    // Unique cache key including filters and pagination
     const cacheKey = `random_products:${category || 'all'}:${tag || 'all'}:${brand || 'all'}:page${pageNum}:limit${limitNum}`;
 
     // Check cache first
     const cached = cache.get(cacheKey);
     if (cached) {
       return res.json({
-        success: true,
-        count: cached.data.length,
-        pagination: cached.pagination,
-        data: cached.data,
+        ...cached,
         cached: true,
       });
     }
@@ -307,7 +313,7 @@ export const getRandomProducts = async (req, res) => {
     const totalCount = await Product.countDocuments(filter);
 
     if (totalCount === 0) {
-      return res.json({
+      const emptyResponse = {
         success: true,
         count: 0,
         pagination: {
@@ -315,15 +321,19 @@ export const getRandomProducts = async (req, res) => {
           limit: limitNum,
           total: 0,
           pages: 0,
+          hasNext: false,
+          hasPrev: false,
         },
         data: [],
-      });
+      };
+      cache.set(cacheKey, emptyResponse);
+      return res.json(emptyResponse);
     }
 
-    // Calculate how many items to sample
+    // Determine how many random items to fetch
     const sampleSize = Math.min(limitNum, totalCount);
 
-    // Use $sample to get random products directly (efficient!)
+    // Efficient random sampling with MongoDB $sample
     const randomProducts = await Product.aggregate([
       { $match: filter },
       { $sample: { size: sampleSize } },
@@ -336,7 +346,7 @@ export const getRandomProducts = async (req, res) => {
       { path: "tags", select: "name slug color" },
     ]);
 
-    // Project desired fields
+    // Project only needed fields
     const projected = randomProducts.map(product => ({
       _id: product._id,
       name: product.name,
@@ -373,18 +383,23 @@ export const getRandomProducts = async (req, res) => {
         hasPrev: pageNum > 1,
       },
       data: projected,
-      cached: false,
     };
 
-    // Cache the full response (data + pagination)
+    // Cache the response (without the 'cached' flag — we'll add it only when serving from cache)
     cache.set(cacheKey, responseData);
 
-    res.json(responseData);
+    res.json({
+      ...responseData,
+      cached: false,
+    });
   } catch (error) {
     console.error("Get Random Products Error:", error);
-    res.status(500).json({ error: "Failed to fetch random products" });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch random products. Please try again later.",
+    });
   }
-};;
+};
 // api/products/trending.js or add to your existing controller
 // controllers/productController.js or api/products/trending.js
 
