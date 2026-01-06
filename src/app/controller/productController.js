@@ -266,7 +266,7 @@ const cache = new NodeCache({ stdTTL: 300 }); // 5-minute cache
 
 export const getRandomProducts = async (req, res) => {
   try {
-    const { category, tag, brand, page = 1, limit = 12 } = req.query;
+    const { category, tag, brand, page = 1, limit = 250 } = req.query;
 
     // Parse and validate pagination params
     const pageNum = parseInt(page, 10);
