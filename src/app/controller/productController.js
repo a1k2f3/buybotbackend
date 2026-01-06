@@ -266,18 +266,29 @@ const cache = new NodeCache({ stdTTL: 300 }); // 5-minute cache
 
 export const getRandomProducts = async (req, res) => {
   try {
-    const { category, tag, brand } = req.query;
+    const { category, tag, brand, page = 1, limit = 250 } = req.query;
 
-    // Unique cache key based on filters
-    const cacheKey = `random_products_all:${category || 'all'}:${tag || 'all'}:${brand || 'all'}`;
+    const pageNum = parseInt(page, 10);
+    const limitNum = parseInt(limit, 10);
+
+    if (pageNum < 1 || limitNum < 1 || limitNum > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid page or limit. Page must be >= 1, limit between 1 and 100.",
+      });
+    }
+
+    // Unique cache key including pagination
+    const cacheKey = `random_products:${category || 'all'}:${tag || 'all'}:${brand || 'all'}:page${pageNum}:limit${limitNum}`;
 
     // Check cache first
     const cached = cache.get(cacheKey);
     if (cached) {
       return res.json({
         success: true,
-        count: cached.length,
-        data: cached,
+        count: cached.data.length,
+        pagination: cached.pagination,
+        data: cached.data,
         cached: true,
       });
     }
@@ -292,39 +303,47 @@ export const getRandomProducts = async (req, res) => {
     if (tag) filter.tags = tag;
     if (brand) filter.brand = brand;
 
-    // First, get total count of matching documents
+    // Get total count for pagination metadata
     const totalCount = await Product.countDocuments(filter);
 
     if (totalCount === 0) {
       return res.json({
         success: true,
         count: 0,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: 0,
+          pages: 0,
+        },
         data: [],
       });
     }
 
-    // Use $sample to get all documents in random order
-    // MongoDB's $sample is efficient even for larger sets when used after $match
+    // Calculate how many items to sample
+    const sampleSize = Math.min(limitNum, totalCount);
+
+    // Use $sample to get random products directly (efficient!)
     const randomProducts = await Product.aggregate([
       { $match: filter },
-      { $sample: { size: totalCount } }, // Shuffle all matching products
+      { $sample: { size: sampleSize } },
     ]);
 
-    // Populate related fields efficiently
+    // Populate related fields
     await Product.populate(randomProducts, [
       { path: "category", select: "name slug" },
       { path: "brand", select: "name address" },
       { path: "tags", select: "name slug color" },
     ]);
 
-    // Manually project to control exact output shape
+    // Project desired fields
     const projected = randomProducts.map(product => ({
       _id: product._id,
       name: product.name,
       slug: product.slug,
       price: product.price,
       thumbnail: product.thumbnail,
-      images: product.images?.slice(0, 1), // only first image
+      images: product.images?.slice(0, 1),
       rating: product.rating,
       category: product.category
         ? { name: product.category.name, slug: product.category.slug }
@@ -339,15 +358,28 @@ export const getRandomProducts = async (req, res) => {
       })),
     }));
 
-    // Cache the full result
-    cache.set(cacheKey, projected);
+    // Pagination metadata
+    const totalPages = Math.ceil(totalCount / limitNum);
 
-    res.json({
+    const responseData = {
       success: true,
       count: projected.length,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        pages: totalPages,
+        hasNext: pageNum < totalPages,
+        hasPrev: pageNum > 1,
+      },
       data: projected,
       cached: false,
-    });
+    };
+
+    // Cache the full response (data + pagination)
+    cache.set(cacheKey, responseData);
+
+    res.json(responseData);
   } catch (error) {
     console.error("Get Random Products Error:", error);
     res.status(500).json({ error: "Failed to fetch random products" });
