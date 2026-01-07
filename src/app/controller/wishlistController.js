@@ -127,12 +127,10 @@ const id=req.query.id;
       return res.status(404).json({ message: "Product not found or unavailable" });
     }
 
-    let wishlist = await Wishlist.findOne({ user: req.user._id });
-
+    let wishlist = await Wishlist.findOne({ user: id });
     if (!wishlist) {
-      wishlist = new Wishlist({ user: req.user._id, products: [] });
+      wishlist = new Wishlist({ user: id, products: [] });
     }
-
     const productIndex = wishlist.products.findIndex(
       (item) => item.product.toString() === productId
     );

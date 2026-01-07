@@ -15,6 +15,6 @@ const router = express.Router();
 
 router.route("/").get(getWishlist);
 router.route("/toggle/:productId").post( toggleWishlist);
-router.route("/:productId/").post(addToWishlist).delete(removeFromWishlist);
+router.route("/:productId").post(addToWishlist).delete(removeFromWishlist);
 
 export default router;
