@@ -7,7 +7,7 @@ import { addToWishlist, removeFromWishlist, toggleWishlist,getWishlist } from ".
 const router = express.Router();
 
 // All routes below this will require authentication
-router.use(protect);
+// router.use(protect);
 
 router.route("/").get(getWishlist);
 

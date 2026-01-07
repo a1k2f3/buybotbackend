@@ -1,22 +1,26 @@
+// controllers/wishlistController.js
+
 import Product from "../models/Product.js";
 import Wishlist from "../models/WishList.js";
 
-// @desc    Get user's wishlist
-// @route   GET /api/wishlist
-// @access  Private
+// GET user's wishlist
 export const getWishlist = async (req, res) => {
   try {
-    const id=req.query.id;
-    const wishlist = await Wishlist.findOne({ user: id }).populate(
+    const userId = req.query.id;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    const wishlist = await Wishlist.findOne({ user: userId }).populate(
       "products.product",
       "name price discountPrice thumbnail images stock status"
     );
 
     if (!wishlist) {
-      return res.json({ products: [] });
+      return res.json({ products: [], total: 0 });
     }
 
-    // Filter out inactive/out-of-stock products (optional)
     const validProducts = wishlist.products.filter(
       (item) => item.product && item.product.status === "active" && item.product.stock > 0
     );
@@ -27,33 +31,34 @@ export const getWishlist = async (req, res) => {
         name: item.product.name,
         price: item.product.price,
         discountPrice: item.product.discountPrice,
-        thumbnail: item.product.thumbnail || item.product.images[0]?.url,
+        thumbnail: item.product.thumbnail || item.product.images?.[0]?.url,
         stock: item.product.stock,
         addedAt: item.addedAt,
       })),
       total: validProducts.length,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Get Wishlist Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
 
-// controllers/wishlistController.js
-
+// ADD to wishlist
 export const addToWishlist = async (req, res) => {
   try {
     const productId = req.params.productId;
-    const userId = req.user._id; // ← From protect middleware (JWT)
+    const userId = req.query.id;
 
-    // ... rest of your code remains SAME
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
     const product = await Product.findById(productId);
     if (!product || product.status !== "active") {
       return res.status(404).json({ message: "Product not found or unavailable" });
     }
 
     let wishlist = await Wishlist.findOne({ user: userId });
-
     if (!wishlist) {
       wishlist = new Wishlist({ user: userId, products: [] });
     }
@@ -76,75 +81,78 @@ export const addToWishlist = async (req, res) => {
       wishlist,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Add to Wishlist Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
-// @desc    Remove product from wishlist
-// @route   DELETE /api/wishlist/:productId
-// @access  Private
+
+// REMOVE from wishlist
 export const removeFromWishlist = async (req, res) => {
   try {
     const productId = req.params.productId;
-const id=req.query.id;
-    const wishlist = await Wishlist.findOne({ user:id });
+    const userId = req.query.id;
 
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
+    const wishlist = await Wishlist.findOne({ user: userId });
     if (!wishlist) {
       return res.status(404).json({ message: "Wishlist not found" });
     }
 
     const initialLength = wishlist.products.length;
-
     wishlist.products = wishlist.products.filter(
       (item) => item.product.toString() !== productId
     );
 
     if (wishlist.products.length === initialLength) {
-      return res.status(404).json({ message: "Product not found in wishlist" });
+      return res.status(404).json({ message: "Product not in wishlist" });
     }
 
     await wishlist.save();
-
     res.json({ message: "Product removed from wishlist" });
   } catch (error) {
-    console.error(error);
+    console.error("Remove from Wishlist Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
 
-// @desc    Toggle wishlist (add if not exists, remove if exists)
-// @route   POST /api/wishlist/toggle/:productId
-// @access  Private
+// TOGGLE wishlist
 export const toggleWishlist = async (req, res) => {
   try {
     const productId = req.params.productId;
-const id=req.query.id;
+    const userId = req.query.id;
+
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
+
     const product = await Product.findById(productId);
     if (!product || product.status !== "active") {
       return res.status(404).json({ message: "Product not found or unavailable" });
     }
 
-    let wishlist = await Wishlist.findOne({ user: id });
+    let wishlist = await Wishlist.findOne({ user: userId });
     if (!wishlist) {
-      wishlist = new Wishlist({ user: id, products: [] });
+      wishlist = new Wishlist({ user: userId, products: [] });
     }
+
     const productIndex = wishlist.products.findIndex(
       (item) => item.product.toString() === productId
     );
 
     if (productIndex > -1) {
-      // Remove
       wishlist.products.splice(productIndex, 1);
       await wishlist.save();
       return res.json({ message: "Removed from wishlist", inWishlist: false });
     } else {
-      // Add
       wishlist.products.push({ product: productId });
       await wishlist.save();
       return res.json({ message: "Added to wishlist", inWishlist: true });
     }
   } catch (error) {
-    console.error(error);
+    console.error("Toggle Wishlist Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };
