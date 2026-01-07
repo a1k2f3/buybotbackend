@@ -1,7 +1,7 @@
 // controllers/wishlistController.js
 
 import Product from "../models/Product.js";
-import Wishlist from "../models/WishList.js";
+import Wishlist from "../models/Wishlist.js";
 
 // GET user's wishlist
 export const getWishlist = async (req, res) => {
