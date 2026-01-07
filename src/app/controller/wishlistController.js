@@ -121,7 +121,7 @@ const id=req.query.id;
 export const toggleWishlist = async (req, res) => {
   try {
     const productId = req.params.productId;
-
+const id=req.query.id;
     const product = await Product.findById(productId);
     if (!product || product.status !== "active") {
       return res.status(404).json({ message: "Product not found or unavailable" });

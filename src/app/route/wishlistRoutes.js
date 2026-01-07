@@ -11,10 +11,10 @@ import { protect } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 // All routes are protected
-router.use(protect);
+// router.use(protect);
 
 router.route("/").get(getWishlist);
-router.route("/toggle/:productId").post(toggleWishlist);
+router.route("/toggle/:productId").post( toggleWishlist);
 router.route("/:productId/").post(addToWishlist).delete(removeFromWishlist);
 
 export default router;
