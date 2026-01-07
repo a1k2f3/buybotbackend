@@ -6,7 +6,7 @@ import {
   addToWishlist,
   removeFromWishlist,
   toggleWishlist,
-} from "../controller/productController.js";  // ← Note: "controllers" (plural, lowercase 'c')
+} from "../controller/wishlistfinalcontroller";  // ← Note: "controllers" (plural, lowercase 'c')
 // import { protect } from "../middleware/authstore.js";
 // router.use(protect);
 const router = express.Router();
