@@ -50,6 +50,4 @@ app.use("/api/cart", cartRoute);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/riders", riderRoutes);
-
-// const PORT = 5000;
 app.listen(process.env.PORT, () => console.log(`Server running on port ${process.env.PORT}`));
