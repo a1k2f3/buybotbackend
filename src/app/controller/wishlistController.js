@@ -39,24 +39,25 @@ export const getWishlist = async (req, res) => {
   }
 };
 
-// @desc    Add product to wishlist
-// @route   POST /api/wishlist/:productId
-// @access  Private
+// controllers/wishlistController.js
+
 export const addToWishlist = async (req, res) => {
   try {
     const productId = req.params.productId;
-const id=req.query.id;
+    const userId = req.user._id; // ← From protect middleware (JWT)
+
+    // ... rest of your code remains SAME
     const product = await Product.findById(productId);
     if (!product || product.status !== "active") {
       return res.status(404).json({ message: "Product not found or unavailable" });
     }
 
-    let wishlist = await Wishlist.findOne({ user:id });
+    let wishlist = await Wishlist.findOne({ user: userId });
 
     if (!wishlist) {
-      wishlist = new Wishlist({ user:id, products: [] });
+      wishlist = new Wishlist({ user: userId, products: [] });
     }
-    // Check if product already in wishlist
+
     const exists = wishlist.products.some(
       (item) => item.product.toString() === productId
     );
@@ -68,10 +69,7 @@ const id=req.query.id;
     wishlist.products.push({ product: productId });
     await wishlist.save();
 
-    await wishlist.populate(
-      "products.product",
-      "name price discountPrice thumbnail images"
-    );
+    await wishlist.populate("products.product", "name price discountPrice thumbnail images");
 
     res.status(201).json({
       message: "Product added to wishlist",
@@ -82,7 +80,6 @@ const id=req.query.id;
     res.status(500).json({ message: "Server Error" });
   }
 };
-
 // @desc    Remove product from wishlist
 // @route   DELETE /api/wishlist/:productId
 // @access  Private

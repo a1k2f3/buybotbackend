@@ -12,6 +12,7 @@ import userRoute from "./src/app/route/UserRute.js";
 import cartRoute from "./src/app/route/cartRoute.js";
 import orderRoutes from "./src/app/route/orderRoutes.js";
 import riderRoutes from "./src/app/route/ReviewRoute.js";
+import wishlistRoutes from "./src/app/route/wishlistRoutes.js"
 // import dotenv from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./src/app/Config/swagger.js";
@@ -46,6 +47,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/users", userRoute);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoute);
+app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/riders", riderRoutes);
 
